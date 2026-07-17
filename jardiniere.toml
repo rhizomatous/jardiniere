@@ -1,0 +1,10 @@
+# jardinière sandbox config for this repo.
+# jard reads this on the host and uses it to enter the dev env.
+
+startup = "bash"              # command run inside `nix develop`; e.g. "claude", "opencode"
+# image = "nixos/nix:latest"  # override the base runner image
+
+# --- planned for v2 (parsed but not yet enforced) ---
+# network = "full"            # "none" | "allowlist" | "full"
+# allow   = ["github.com", "api.anthropic.com"]
+# mounts  = ["~/.config/foo:ro"]

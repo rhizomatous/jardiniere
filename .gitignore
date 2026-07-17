@@ -1,0 +1,5 @@
+/jard
+/dist/
+*.out
+result
+result-*
