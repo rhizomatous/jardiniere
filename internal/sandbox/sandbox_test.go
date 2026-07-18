@@ -38,6 +38,56 @@ func TestSSHAgentHostSocket(t *testing.T) {
 	}
 }
 
+func TestNetworkArgs(t *testing.T) {
+	if got := networkArgs(config.NetworkNone, nil); !slices.Equal(got, []string{"--network", "none"}) {
+		t.Errorf("none: got %v", got)
+	}
+	if got := networkArgs(config.NetworkFull, nil); got != nil {
+		t.Errorf("full: got %v, want nil", got)
+	}
+	p := &proxySidecar{internalNet: "jard-int-1", proxyName: "jard-proxy-1"}
+	got := strings.Join(networkArgs(config.NetworkAllowlist, p), " ")
+	if !strings.Contains(got, "--network jard-int-1") || !strings.Contains(got, "HTTPS_PROXY=") {
+		t.Errorf("allowlist: got %v", got)
+	}
+}
+
+func TestBuildArgsNetworkNone(t *testing.T) {
+	base := Options{Runtime: rt.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
+
+	none := base
+	none.Config.Network = config.NetworkNone
+	if args := buildArgs(none, "linux", nil); !slices.Contains(args, "none") ||
+		!strings.Contains(strings.Join(args, " "), "--network none") {
+		t.Errorf("network=none should add `--network none`, got %v", args)
+	}
+
+	full := base // Defaults() is full
+	if strings.Contains(strings.Join(buildArgs(full, "linux", nil), " "), "--network") {
+		t.Errorf("network=full should add no --network flag, got %v", buildArgs(full, "linux", nil))
+	}
+}
+
+func TestBuildArgsAllowlist(t *testing.T) {
+	opts := Options{
+		Runtime: rt.Runtime{Name: "docker"},
+		Config:  config.Config{Network: config.NetworkAllowlist, Allow: []string{"github.com"}},
+		RepoDir: "/repo",
+	}
+	proxy := planProxySidecar(opts)
+	joined := strings.Join(buildArgs(opts, "linux", proxy), " ")
+
+	if !strings.Contains(joined, "--network "+proxy.internalNet) {
+		t.Errorf("allowlist should attach the internal net %q, got %v", proxy.internalNet, joined)
+	}
+	if !strings.Contains(joined, "HTTPS_PROXY="+proxy.proxyURL()) {
+		t.Errorf("allowlist should inject HTTPS_PROXY, got %v", joined)
+	}
+	if strings.Contains(joined, "--network none") {
+		t.Errorf("allowlist must not also pass --network none")
+	}
+}
+
 // `TestBuildArgsAgentForwarding` checks that the correct forwarding flags are
 // passed to the container invocation, per platform.
 func TestBuildArgsAgentForwarding(t *testing.T) {
@@ -59,7 +109,7 @@ func TestBuildArgsAgentForwarding(t *testing.T) {
 				RepoDir: "/repo",
 				SSHSock: "/host/agent.sock",
 			}
-			args := buildArgs(opts, tc.goos)
+			args := buildArgs(opts, tc.goos, nil)
 			hasEnv := slices.Contains(args, "SSH_AUTH_SOCK="+containerSSHSock)
 			hasMount := strings.Contains(strings.Join(args, " "), ":"+containerSSHSock)
 			if got := hasEnv && hasMount; got != tc.wantForwarded {

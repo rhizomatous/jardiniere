@@ -21,11 +21,18 @@ import (
 // the config file jard looks for at the root of a target repo.
 const FileName = "jardiniere.toml"
 
+// network policy modes for the `network` key.
+const (
+	NetworkFull      = "full"      // unrestricted network (default)
+	NetworkNone      = "none"      // no network at all
+	NetworkAllowlist = "allowlist" // only hosts listed in Allow
+)
+
 // the parsed `jardiniere.toml`.
 type Config struct {
 	Startup string   // command to run inside the dev env
 	Image   string   // base runner image
-	Network string   // network policy (v2)
+	Network string   // "full" | "none" | "allowlist" (allowlist pending)
 	Allow   []string // allowlisted hosts (v2)
 	Mounts  []string // extra host mounts (v2)
 }
@@ -75,7 +82,27 @@ func Load(dir string) (Config, error) {
 			return cfg, fmt.Errorf("%s:%d: unknown key %q", path, line, key)
 		}
 	}
-	return cfg, sc.Err()
+	if err := sc.Err(); err != nil {
+		return cfg, err
+	}
+	if err := validateNetwork(cfg.Network); err != nil {
+		return cfg, fmt.Errorf("%s: %w", path, err)
+	}
+	if cfg.Network == NetworkAllowlist && len(cfg.Allow) == 0 {
+		return cfg, fmt.Errorf(`%s: network = "allowlist" requires a non-empty `+"`allow`"+` list of hosts`, path)
+	}
+	return cfg, nil
+}
+
+// `validateNetwork` rejects unknown `network` values up front.
+func validateNetwork(mode string) error {
+	switch mode {
+	case NetworkFull, NetworkNone, NetworkAllowlist:
+		return nil
+	default:
+		return fmt.Errorf("invalid network %q: must be %q, %q, or %q",
+			mode, NetworkNone, NetworkAllowlist, NetworkFull)
+	}
 }
 
 // `parseLine` splits a "key = value" line, skipping blanks and # comments.

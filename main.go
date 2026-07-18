@@ -84,6 +84,8 @@ func run() error {
 			Runtime:      rt.Name,
 			Image:        cfg.Image,
 			Startup:      startupLabel(cfg),
+			Network:      cfg.Network,
+			AllowCount:   len(cfg.Allow),
 			SSHForwarded: forwarded,
 			SSHDetail:    detail,
 			Identity:     identity.Label(),

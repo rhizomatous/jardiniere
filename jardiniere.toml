@@ -4,7 +4,15 @@
 startup = "bash"              # command run inside `nix develop`; e.g. "claude", "opencode"
 # image = "nixos/nix:latest"  # override the base runner image
 
-# --- planned for v2 (parsed but not yet enforced) ---
-# network = "full"            # "none" | "allowlist" | "full"
-# allow   = ["github.com", "api.anthropic.com"]
-# mounts  = ["~/.config/foo:ro"]
+# network policy for the sandboxed agent:
+#   "full" (default): unrestricted
+#   "none": no network at all
+#   "allowlist": only the hosts in `allow`
+network = "full"
+
+# hosts the agent may reach in allowlist mode. each entry also permits its
+# subdomains (e.g. "github.com" allows "api.github.com"). HTTP(S) only.
+# allow = ["github.com", "api.anthropic.com"]
+
+# --- planned for later v2 (parsed but not yet enforced) ---
+# mounts = ["~/.config/foo:ro"]

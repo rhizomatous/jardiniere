@@ -89,7 +89,21 @@ func sshAgentHostSocket(goos, rtName, hostSock string) (path string, ok bool, re
 // `Run` builds the container command and either executes it (inheriting the
 // terminal for an interactive session) or, under DryRun, prints it.
 func Run(ctx context.Context, opts Options) error {
-	args := buildArgs(opts, runtime.GOOS)
+	// in allowlist mode the sandbox joins an isolated network fronted by a
+	// filtering proxy.
+	var proxy *proxySidecar
+	if opts.Config.Network == config.NetworkAllowlist {
+		proxy = planProxySidecar(opts)
+		if !opts.DryRun {
+			if err := proxy.start(ctx); err != nil {
+				proxy.cleanup()
+				return err
+			}
+			defer proxy.cleanup()
+		}
+	}
+
+	args := buildArgs(opts, runtime.GOOS, proxy)
 
 	if opts.DryRun {
 		fmt.Println(opts.Runtime.Path, strings.Join(args, " "))
@@ -104,8 +118,8 @@ func Run(ctx context.Context, opts Options) error {
 }
 
 // `SSHAgentStatus` reports whether ssh-agent forwarding will be active for this
-	// runtime and host, plus a human-readable detail. Callers use it to render the
-	// run summary.
+// runtime and host, plus a human-readable detail. Callers use it to render the
+// run summary.
 func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
 	_, ok, reason := sshAgentHostSocket(runtime.GOOS, rtName, hostSock)
 	switch {
@@ -120,8 +134,8 @@ func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
 
 // `buildArgs` assembles the container `run` arguments. goos is injected (rather
 // than read from the global runtime.GOOS) so tests can exercise each platform's
-// ssh-forwarding path deterministically, independent of the host they run on.
-func buildArgs(opts Options, goos string) (args []string) {
+// ssh-forwarding path, independent of the host they run on.
+func buildArgs(opts Options, goos string, proxy *proxySidecar) (args []string) {
 	c := opts.Config
 	args = []string{
 		"run", "--rm", "-it",
@@ -132,6 +146,9 @@ func buildArgs(opts Options, goos string) (args []string) {
 		// enable flakes & the nix command in images (like nixos/nix) that ship with them off.
 		"-e", "NIX_CONFIG=experimental-features = nix-command flakes",
 	}
+
+	// apply network config
+	args = append(args, networkArgs(c.Network, proxy)...)
 
 	// commit as the host user, without mutating the repo's git config.
 	if opts.Identity.Name != "" {
@@ -154,13 +171,28 @@ func buildArgs(opts Options, goos string) (args []string) {
 	return args
 }
 
-// `entrypoint` runs the configured startup command inside the repo's own dev shell.
+// `networkArgs` maps a network policy to its `docker run` networking arguments:
+//
+//	none      → --network none
+//	allowlist → --network <isolated net> + proxy env vars
+//	full      → no network args
+func networkArgs(mode string, proxy *proxySidecar) []string {
+	switch mode {
+	case config.NetworkNone:
+		return []string{"--network", "none"}
+	case config.NetworkAllowlist:
+		return append([]string{"--network", proxy.internalNet}, proxy.envArgs()...)
+	default: // full
+		return nil
+	}
+}
+
+// `entrypoint` enters the repo's own dev shell and runs the startup command.
+// preflightFlake guarantees a tracked flake.nix before we get here, so we can
+// always `nix develop` — no need to handle a missing flake.
 func entrypoint(startup string) string {
 	if startup == "" {
 		startup = "bash"
 	}
-	// %[1]s is reused for the flake and no-flake branches.
-	return fmt.Sprintf(
-		`if [ -e %[2]s/flake.nix ]; then exec nix develop %[2]s --command %[1]s; else exec %[1]s; fi`,
-		startup, workdir)
+	return fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
 }

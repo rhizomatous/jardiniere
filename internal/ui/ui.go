@@ -5,6 +5,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -30,6 +31,8 @@ type Summary struct {
 	Runtime      string // e.g. "docker"
 	Image        string // e.g. "nixos/nix:latest"
 	Startup      string // e.g. "claude"
+	Network      string // "none" | "full" | "allowlist"
+	AllowCount   int    // number of allowlisted hosts (allowlist mode)
 	SSHForwarded bool
 	SSHDetail    string // shown when SSHForwarded is false
 	Identity     string // "viv shaw <hey@vivsha.ws>", or "" when unset
@@ -54,11 +57,25 @@ func RenderSummary(s Summary) string {
 		identity = valueStyle.Render(identity)
 	}
 
+	// color-code the security posture
+	var network string
+	switch s.Network {
+	case "none":
+		network = okStyle.Render("none — no network access")
+	case "full":
+		network = warnStyle.Render("full — no isolation")
+	case "allowlist":
+		network = okStyle.Render(fmt.Sprintf("allowlist — %d host(s) permitted", s.AllowCount))
+	default:
+		network = valueStyle.Render(s.Network)
+	}
+
 	lines := []string{
 		titleStyle.Render("🪴 jardinière"),
 		row("runtime", s.Runtime),
 		row("image", s.Image),
 		row("startup", s.Startup),
+		"  " + labelStyle.Render("network") + network,
 		"  " + labelStyle.Render("ssh-agent") + ssh,
 		"  " + labelStyle.Render("commits") + identity,
 		arrowStyle.Render("  › entering sandbox…"),

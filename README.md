@@ -29,9 +29,9 @@ image = "nixos/nix:latest"
 jard  →  read ./jardiniere.toml
       →  detect whatever OCI runtime is present (docker / podman / orbstack)
       →  run a Nix-enabled Linux container with:
-           • repo bind-mounted at /work   (commits land on the host)
-           • persistent /nix store volume (fast cold starts)
-           • your git identity injected    (authored as you)
+           • repo bind-mounted at /work    (git commit to the host fs)
+           • persistent /nix store volume  (fast cold starts)
+           • your git identity injected    (author commits as you)
            • ssh-agent forwarded           (if Linux, or macOS on OrbStack/Docker)
       →  exec `nix develop /work --command <startup>`
 ```
@@ -46,6 +46,16 @@ jardinière uses Linux containers to sandbox your agent. use any Docker or Podma
 
 on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you're using Docker, OrbStack, or another runtime that's compatible. (podman is not.)
 
+### network policy
+
+set `network` in `jardiniere.toml` to control what the agent can reach:
+
+- `"full"` (default): unrestricted network.
+- `"none"`: no network at all.
+- `"allowlist"`: only the hosts in `allow` (and their subdomains).
+
+in `allowlist` mode, the sandbox joins an isolated network with no direct route out. its only egress is a proxy sidecar that permits `CONNECT` to allowed hosts only. unfortunately, this only supports HTTP(S)! so use HTTPS git remotes in this mode.
+
 ## development
 
 ```sh
@@ -57,5 +67,5 @@ jard --dry-run
 
 - **v0** ✅ config, runtime detection, repo mount, `nix develop` loop, git identity
 - **v1** ✅ ssh-agent forwarding on macOS (docker-family), polished Charm CLI
-- **v2** persistent-store tuning, network policy (`none`/`allowlist`/`full`),
+- **v2** (in progress) network policy — `none`/`full`/`allowlist` ✅ ·
   extra mounts, a purpose-built two-layer runner image, `colima` auto-provision
