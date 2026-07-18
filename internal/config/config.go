@@ -3,11 +3,11 @@
 //
 // schema:
 //
-//	startup = "claude"          # command run inside `nix develop`. default "bash"
+//	startup = "claude"            # command run inside `nix develop`. default "bash"
 //	image   = "nixos/nix:latest"  # base runner image override. default "nixos/nix:latest"
-//	network = "full"            # "none" | "allowlist" | "full" (v2; parsed now)
-//	allow   = ["github.com"]    # allowlist hosts (v2; parsed now)
-//	mounts  = ["~/.foo:ro"]     # extra host mounts (v2; parsed now)
+//	network = "full"              # "none" | "allowlist" | "full"
+//	allow   = ["github.com"]      # allowlist hosts (allowlist mode)
+//	mounts  = ["~/.foo:ro"]       # extra host mounts, source[:target][:ro|rw]
 package config
 
 import (
@@ -33,8 +33,8 @@ type Config struct {
 	Startup string   // command to run inside the dev env
 	Image   string   // base runner image
 	Network string   // "full" | "none" | "allowlist" (allowlist pending)
-	Allow   []string // allowlisted hosts (v2)
-	Mounts  []string // extra host mounts (v2)
+	Allow   []string // allowlisted hosts
+	Mounts  []string // extra host mounts, each "source[:target][:ro|rw]"
 }
 
 // default config used when a repo has no `jardiniere.toml`.

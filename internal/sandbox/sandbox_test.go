@@ -57,14 +57,14 @@ func TestBuildArgsNetworkNone(t *testing.T) {
 
 	none := base
 	none.Config.Network = config.NetworkNone
-	if args := buildArgs(none, "linux", nil); !slices.Contains(args, "none") ||
+	if args := buildArgs(none, "linux", nil, nil); !slices.Contains(args, "none") ||
 		!strings.Contains(strings.Join(args, " "), "--network none") {
 		t.Errorf("network=none should add `--network none`, got %v", args)
 	}
 
 	full := base // Defaults() is full
-	if strings.Contains(strings.Join(buildArgs(full, "linux", nil), " "), "--network") {
-		t.Errorf("network=full should add no --network flag, got %v", buildArgs(full, "linux", nil))
+	if strings.Contains(strings.Join(buildArgs(full, "linux", nil, nil), " "), "--network") {
+		t.Errorf("network=full should add no --network flag, got %v", buildArgs(full, "linux", nil, nil))
 	}
 }
 
@@ -75,7 +75,7 @@ func TestBuildArgsAllowlist(t *testing.T) {
 		RepoDir: "/repo",
 	}
 	proxy := planProxySidecar(opts)
-	joined := strings.Join(buildArgs(opts, "linux", proxy), " ")
+	joined := strings.Join(buildArgs(opts, "linux", proxy, nil), " ")
 
 	if !strings.Contains(joined, "--network "+proxy.internalNet) {
 		t.Errorf("allowlist should attach the internal net %q, got %v", proxy.internalNet, joined)
@@ -109,7 +109,7 @@ func TestBuildArgsAgentForwarding(t *testing.T) {
 				RepoDir: "/repo",
 				SSHSock: "/host/agent.sock",
 			}
-			args := buildArgs(opts, tc.goos, nil)
+			args := buildArgs(opts, tc.goos, nil, nil)
 			hasEnv := slices.Contains(args, "SSH_AUTH_SOCK="+containerSSHSock)
 			hasMount := strings.Contains(strings.Join(args, " "), ":"+containerSSHSock)
 			if got := hasEnv && hasMount; got != tc.wantForwarded {

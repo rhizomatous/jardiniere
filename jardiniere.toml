@@ -14,5 +14,6 @@ network = "full"
 # subdomains (e.g. "github.com" allows "api.github.com"). HTTP(S) only.
 # allow = ["github.com", "api.anthropic.com"]
 
-# --- planned for later v2 (parsed but not yet enforced) ---
-# mounts = ["~/.config/foo:ro"]
+# extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
+# mode defaults to read-only.
+# mounts = ["~/.config/gh", "~/.netrc:rw"]

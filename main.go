@@ -86,6 +86,7 @@ func run() error {
 			Startup:      startupLabel(cfg),
 			Network:      cfg.Network,
 			AllowCount:   len(cfg.Allow),
+			MountCount:   len(cfg.Mounts),
 			SSHForwarded: forwarded,
 			SSHDetail:    detail,
 			Identity:     identity.Label(),

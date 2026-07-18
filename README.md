@@ -67,5 +67,5 @@ jard --dry-run
 
 - **v0** ✅ config, runtime detection, repo mount, `nix develop` loop, git identity
 - **v1** ✅ ssh-agent forwarding on macOS (docker-family), polished Charm CLI
-- **v2** (in progress) network policy — `none`/`full`/`allowlist` ✅ ·
-  extra mounts, a purpose-built two-layer runner image, `colima` auto-provision
+- **v2** (in progress) network policy `none`/`full`/`allowlist` ✅ · extra mounts ✅ ·
+  a purpose-built two-layer runner image, `colima` auto-provision

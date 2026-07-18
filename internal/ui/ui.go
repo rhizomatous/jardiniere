@@ -33,6 +33,7 @@ type Summary struct {
 	Startup      string // e.g. "claude"
 	Network      string // "none" | "full" | "allowlist"
 	AllowCount   int    // number of allowlisted hosts (allowlist mode)
+	MountCount   int    // number of extra host mounts (row hidden when 0)
 	SSHForwarded bool
 	SSHDetail    string // shown when SSHForwarded is false
 	Identity     string // "viv shaw <hey@vivsha.ws>", or "" when unset
@@ -78,7 +79,10 @@ func RenderSummary(s Summary) string {
 		"  " + labelStyle.Render("network") + network,
 		"  " + labelStyle.Render("ssh-agent") + ssh,
 		"  " + labelStyle.Render("commits") + identity,
-		arrowStyle.Render("  › entering sandbox…"),
 	}
+	if s.MountCount > 0 {
+		lines = append(lines, row("mounts", fmt.Sprintf("%d extra path(s)", s.MountCount)))
+	}
+	lines = append(lines, arrowStyle.Render("  › entering sandbox…"))
 	return strings.Join(lines, "\n")
 }

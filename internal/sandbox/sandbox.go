@@ -89,6 +89,13 @@ func sshAgentHostSocket(goos, rtName, hostSock string) (path string, ok bool, re
 // `Run` builds the container command and either executes it (inheriting the
 // terminal for an interactive session) or, under DryRun, prints it.
 func Run(ctx context.Context, opts Options) error {
+	// resolve extra host mounts up front
+	home, _ := os.UserHomeDir()
+	mounts, err := resolveMounts(opts.Config.Mounts, home)
+	if err != nil {
+		return err
+	}
+
 	// in allowlist mode the sandbox joins an isolated network fronted by a
 	// filtering proxy.
 	var proxy *proxySidecar
@@ -103,7 +110,7 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 
-	args := buildArgs(opts, runtime.GOOS, proxy)
+	args := buildArgs(opts, runtime.GOOS, proxy, mounts)
 
 	if opts.DryRun {
 		fmt.Println(opts.Runtime.Path, strings.Join(args, " "))
@@ -135,7 +142,7 @@ func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
 // `buildArgs` assembles the container `run` arguments. goos is injected (rather
 // than read from the global runtime.GOOS) so tests can exercise each platform's
 // ssh-forwarding path, independent of the host they run on.
-func buildArgs(opts Options, goos string, proxy *proxySidecar) (args []string) {
+func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) (args []string) {
 	c := opts.Config
 	args = []string{
 		"run", "--rm", "-it",
@@ -162,10 +169,13 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar) (args []string) {
 			"-e", "GIT_COMMITTER_EMAIL="+opts.Identity.Email)
 	}
 
-	// SSH agent forwarding, so Git pushes can authenticate as you.
+	// SSH agent forwarding, so Git pushes can authenticate as you
 	if host, ok, _ := sshAgentHostSocket(goos, opts.Runtime.Name, opts.SSHSock); ok {
 		args = append(args, "-v", host+":"+containerSSHSock, "-e", "SSH_AUTH_SOCK="+containerSSHSock)
 	}
+
+	// extra host mounts from config, already resolved & validated by the caller
+	args = append(args, mounts...)
 
 	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup))
 	return args
