@@ -32,7 +32,7 @@ jard  →  read ./jardiniere.toml
            • repo bind-mounted at /work   (commits land on the host)
            • persistent /nix store volume (fast cold starts)
            • your git identity injected    (authored as you)
-           • ssh-agent forwarded           (push works; Linux today)
+           • ssh-agent forwarded           (if Linux, or macOS on OrbStack/Docker)
       →  exec `nix develop /work --command <startup>`
 ```
 
@@ -44,6 +44,8 @@ jardinière is completely agnostic to which model or harness you use. configure 
 
 jardinière uses Linux containers to sandbox your agent. use any Docker or Podman compatible runtime of your choice. it will autodetect and use whichever you have present.
 
+on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you're using Docker, OrbStack, or another runtime that's compatible. (podman is not.)
+
 ## development
 
 ```sh
@@ -54,6 +56,6 @@ jard --dry-run
 ### roadmap
 
 - **v0** ✅ config, runtime detection, repo mount, `nix develop` loop, git identity
-- **v1** ssh-agent forwarding on macOS backends; polished Charm TUI
+- **v1** ✅ ssh-agent forwarding on macOS (docker-family), polished Charm CLI
 - **v2** persistent-store tuning, network policy (`none`/`allowlist`/`full`),
   extra mounts, a purpose-built two-layer runner image, `colima` auto-provision

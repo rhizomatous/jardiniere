@@ -15,11 +15,12 @@ import (
 	"github.com/vivshaw/jardiniere/internal/config"
 	"github.com/vivshaw/jardiniere/internal/runtime"
 	"github.com/vivshaw/jardiniere/internal/sandbox"
+	"github.com/vivshaw/jardiniere/internal/ui"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "jard:", err)
+		ui.Log.Error(err.Error())
 		os.Exit(1)
 	}
 }
@@ -65,17 +66,28 @@ func run() error {
 		return err
 	}
 
+	identity := hostGitIdentity()
+	sshSock := os.Getenv("SSH_AUTH_SOCK")
+
 	opts := sandbox.Options{
 		Runtime:  rt,
 		Config:   cfg,
 		RepoDir:  repoDir,
-		Identity: hostGitIdentity(),
-		SSHSock:  os.Getenv("SSH_AUTH_SOCK"),
+		Identity: identity,
+		SSHSock:  sshSock,
 		DryRun:   *dryRun,
 	}
 
 	if !*dryRun {
-		fmt.Fprintf(os.Stderr, "jard: %s → %s (startup: %s)\n", rt.Name, cfg.Image, startupLabel(cfg))
+		forwarded, detail := sandbox.SSHAgentStatus(rt.Name, sshSock)
+		fmt.Fprintln(os.Stderr, ui.RenderSummary(ui.Summary{
+			Runtime:      rt.Name,
+			Image:        cfg.Image,
+			Startup:      startupLabel(cfg),
+			SSHForwarded: forwarded,
+			SSHDetail:    detail,
+			Identity:     identity.Label(),
+		}))
 	}
 	return sandbox.Run(ctx, opts)
 }
@@ -83,7 +95,7 @@ func run() error {
 // check that there's a valid git flake.
 func preflightFlake(repoDir string) error {
 	if _, err := os.Stat(filepath.Join(repoDir, "flake.nix")); err != nil {
-		return fmt.Errorf("no flake.nix found. jard needs a Nix flake to build your dev env.", repoDir)
+		return fmt.Errorf("no flake.nix found. jard needs a Nix flake to build your dev env.")
 	}
 	// non-Git directory: flake presence is enough.
 	if exec.Command("git", "-C", repoDir, "rev-parse", "--is-inside-work-tree").Run() != nil {
@@ -91,7 +103,7 @@ func preflightFlake(repoDir string) error {
 	}
 	// Git repo: `nix develop` reads only tracked files, so flake must be tracked.
 	if exec.Command("git", "-C", repoDir, "ls-files", "--error-unmatch", "flake.nix").Run() != nil {
-		return fmt.Errorf("flake.nix is not tracked by git. you're in a Git repo, so it must be tracked.", repoDir)
+		return fmt.Errorf("flake.nix is not tracked by git. you're in a Git repo, so it must be tracked.")
 	}
 	return nil
 }
