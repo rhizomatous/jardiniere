@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vivshaw/jardiniere/internal/container"
-	"github.com/vivshaw/jardiniere/internal/ui"
+	"github.com/rhizomatous/jardiniere/internal/container"
+	"github.com/rhizomatous/jardiniere/internal/ui"
 )
 
 // we implement network = "allowlist" via a proxy sidecar.

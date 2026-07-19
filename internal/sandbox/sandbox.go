@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/vivshaw/jardiniere/internal/config"
-	"github.com/vivshaw/jardiniere/internal/container"
+	"github.com/rhizomatous/jardiniere/internal/config"
+	"github.com/rhizomatous/jardiniere/internal/container"
 )
 
 // nixStoreVolume is a persistent named volume mounted at /nix so the Nix store

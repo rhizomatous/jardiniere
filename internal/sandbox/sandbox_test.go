@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vivshaw/jardiniere/internal/config"
-	"github.com/vivshaw/jardiniere/internal/container"
+	"github.com/rhizomatous/jardiniere/internal/config"
+	"github.com/rhizomatous/jardiniere/internal/container"
 )
 
 func TestSSHAgentHostSocket(t *testing.T) {

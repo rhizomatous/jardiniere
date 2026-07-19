@@ -15,10 +15,10 @@ import (
 
 	"github.com/alecthomas/kong"
 
-	"github.com/vivshaw/jardiniere/internal/config"
-	"github.com/vivshaw/jardiniere/internal/container"
-	"github.com/vivshaw/jardiniere/internal/sandbox"
-	"github.com/vivshaw/jardiniere/internal/ui"
+	"github.com/rhizomatous/jardiniere/internal/config"
+	"github.com/rhizomatous/jardiniere/internal/container"
+	"github.com/rhizomatous/jardiniere/internal/sandbox"
+	"github.com/rhizomatous/jardiniere/internal/ui"
 )
 
 // version is exactly what it says on the tin.

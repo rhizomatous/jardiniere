@@ -1,4 +1,4 @@
-module github.com/vivshaw/jardiniere
+module github.com/rhizomatous/jardiniere
 
 go 1.26
 

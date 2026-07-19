@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-19
+
+### Fixed
+
+- Corrected the Go module path from `github.com/vivshaw/jardiniere` to `github.com/rhizomatous/jardiniere` so it matches the repository host and `go install github.com/rhizomatous/jardiniere@latest` resolves.
+
 ## [0.1.0] - 2026-07-19
 
 ### Added
@@ -19,5 +25,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `jardiniere.toml` config file, supporting a custom `startup` command, `image` override, and network policy.
 - Kong-based CLI with `--version` and `--dry-run` flags.
 
-[Unreleased]: https://github.com/rhizomatous/jardiniere/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/rhizomatous/jardiniere/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/rhizomatous/jardiniere/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rhizomatous/jardiniere/releases/tag/v0.1.0
