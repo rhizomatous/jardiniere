@@ -99,7 +99,7 @@ func Run(ctx context.Context, opts Options) error {
 	// in allowlist mode the sandbox joins an isolated network fronted by a
 	// filtering proxy.
 	var proxy *proxySidecar
-	if opts.Config.Network == config.NetworkAllowlist {
+	if opts.Config.Network.Mode == config.NetworkAllowlist {
 		proxy = planProxySidecar(opts)
 		if !opts.DryRun {
 			if err := proxy.start(ctx); err != nil {
@@ -155,7 +155,7 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 	}
 
 	// apply network config
-	args = append(args, networkArgs(c.Network, proxy)...)
+	args = append(args, networkArgs(c.Network.Mode, proxy)...)
 
 	// commit as the host user, without mutating the repo's git config.
 	if opts.Identity.Name != "" {

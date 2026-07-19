@@ -56,7 +56,7 @@ func TestBuildArgsNetworkNone(t *testing.T) {
 	base := Options{Runtime: rt.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
 
 	none := base
-	none.Config.Network = config.NetworkNone
+	none.Config.Network.Mode = config.NetworkNone
 	if args := buildArgs(none, "linux", nil, nil); !slices.Contains(args, "none") ||
 		!strings.Contains(strings.Join(args, " "), "--network none") {
 		t.Errorf("network=none should add `--network none`, got %v", args)
@@ -71,7 +71,7 @@ func TestBuildArgsNetworkNone(t *testing.T) {
 func TestBuildArgsAllowlist(t *testing.T) {
 	opts := Options{
 		Runtime: rt.Runtime{Name: "docker"},
-		Config:  config.Config{Network: config.NetworkAllowlist, Allow: []string{"github.com"}},
+		Config:  config.Config{Network: config.NetworkConfig{Mode: config.NetworkAllowlist, Allow: []string{"github.com"}}},
 		RepoDir: "/repo",
 	}
 	proxy := planProxySidecar(opts)

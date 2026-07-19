@@ -48,7 +48,7 @@ on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you'r
 
 ### network policy
 
-set `network` in `jardiniere.toml` to control what the agent can reach:
+set `[network].mode` in `jardiniere.toml` to control what the agent can reach:
 
 - `"full"` (default): unrestricted network.
 - `"none"`: no network at all.

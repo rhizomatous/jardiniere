@@ -30,7 +30,10 @@ func TestLoadOverridesAndKeepsDefaults(t *testing.T) {
 	dir := writeConfig(t, `
 # a comment
 startup = "claude"   # trailing comment
-allow   = ["github.com", "api.anthropic.com"]
+
+[network]
+mode  = "allowlist"
+allow = ["github.com", "api.anthropic.com"]
 `)
 	cfg, err := Load(dir)
 	if err != nil {
@@ -42,8 +45,8 @@ allow   = ["github.com", "api.anthropic.com"]
 	if cfg.Image != Defaults().Image {
 		t.Errorf("image should fall back to default, got %q", cfg.Image)
 	}
-	if want := []string{"github.com", "api.anthropic.com"}; !reflect.DeepEqual(cfg.Allow, want) {
-		t.Errorf("allow: got %v, want %v", cfg.Allow, want)
+	if want := []string{"github.com", "api.anthropic.com"}; !reflect.DeepEqual(cfg.Network.Allow, want) {
+		t.Errorf("allow: got %v, want %v", cfg.Network.Allow, want)
 	}
 }
 
@@ -54,12 +57,53 @@ func TestLoadUnknownKeyErrors(t *testing.T) {
 	}
 }
 
-func TestParseLinePreservesHashInQuotes(t *testing.T) {
-	key, val, ok := parseLine(`startup = "a#b"  # real comment`)
-	if !ok || key != "startup" {
-		t.Fatalf("parseLine failed: key=%q ok=%v", key, ok)
+func TestLoadPreservesHashInQuotes(t *testing.T) {
+	dir := writeConfig(t, `startup = "a#b"  # real comment`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := str(val); got != "a#b" {
-		t.Errorf("hash inside quotes should survive, got %q", got)
+	if cfg.Startup != "a#b" {
+		t.Errorf("hash inside quotes should survive, got %q", cfg.Startup)
+	}
+}
+
+// multi-line arrays are valid TOML and must parse.
+func TestLoadMultiLineArray(t *testing.T) {
+	dir := writeConfig(t, `
+[network]
+mode  = "allowlist"
+allow = [
+  "github.com",
+  "api.anthropic.com",
+]
+`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := []string{"github.com", "api.anthropic.com"}; !reflect.DeepEqual(cfg.Network.Allow, want) {
+		t.Errorf("allow: got %v, want %v", cfg.Network.Allow, want)
+	}
+}
+
+func TestLoadInvalidTOMLErrors(t *testing.T) {
+	dir := writeConfig(t, "startup = \"unterminated\n")
+	if _, err := Load(dir); err == nil {
+		t.Fatal("expected error for malformed toml, got nil")
+	}
+}
+
+func TestLoadInvalidNetworkErrors(t *testing.T) {
+	dir := writeConfig(t, "[network]\nmode = \"sometimes\"\n")
+	if _, err := Load(dir); err == nil {
+		t.Fatal("expected error for invalid network, got nil")
+	}
+}
+
+func TestLoadAllowlistWithoutHostsErrors(t *testing.T) {
+	dir := writeConfig(t, "[network]\nmode = \"allowlist\"\n")
+	if _, err := Load(dir); err == nil {
+		t.Fatal("expected error for allowlist with empty allow, got nil")
 	}
 }

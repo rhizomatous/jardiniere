@@ -49,7 +49,7 @@ func planProxySidecar(opts Options) *proxySidecar {
 		internalNet: "jard-int-" + id,
 		externalNet: "jard-ext-" + id,
 		proxyName:   "jard-proxy-" + id,
-		allow:       opts.Config.Allow,
+		allow:       opts.Config.Network.Allow,
 	}
 }
 

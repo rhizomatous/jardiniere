@@ -15,7 +15,7 @@ All tooling is provided in Nix dev shell: **work inside it.**
 
 - **Formatting:** gofumpt & goimports.
 - **Linting:** golangci-lint (staticcheck for bugs; revive for style; errcheck, gocritic, errorlint, etc.). Keep it at 0 issues.
-- **Doc comments:** standard Go form.
+- **Doc comments:** standard Go form. Do not write archaeological comments describing past states and changes.
 - **Prose:** comments are lowercase and terse.
 - **Errors:** lowercase, no trailing punctuation; `errors.New` for static strings, `fmt.Errorf` + `%w` when wrapping.
 - **Commits:** conventional and scoped. `feat(sandbox): …`, `chore(docs): …`.
@@ -30,4 +30,4 @@ All tooling is provided in Nix dev shell: **work inside it.**
 
 ## Testing
 
-Unit tests are **pure**,with no container runtime required (they cover arg-building, parsing, config generation). Keep them that way: inject dependencies like `goos` rather than reading globals. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
+Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, config generation, etc. Keep them that way: inject dependencies like `goos` rather than reading globals. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.

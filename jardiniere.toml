@@ -4,16 +4,17 @@
 startup = "bash"              # command run inside `nix develop`; e.g. "claude", "opencode"
 # image = "nixos/nix:latest"  # override the base runner image
 
+# extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
+# mode defaults to read-only.
+# mounts = ["~/.config/gh", "~/.netrc:rw"]
+
+[network]
 # network policy for the sandboxed agent:
 #   "full" (default): unrestricted
 #   "none": no network at all
 #   "allowlist": only the hosts in `allow`
-network = "full"
+mode = "full"
 
 # hosts the agent may reach in allowlist mode. each entry also permits its
 # subdomains (e.g. "github.com" allows "api.github.com"). HTTP(S) only.
 # allow = ["github.com", "api.anthropic.com"]
-
-# extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
-# mode defaults to read-only.
-# mounts = ["~/.config/gh", "~/.netrc:rw"]
