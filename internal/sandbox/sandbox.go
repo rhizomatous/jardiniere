@@ -201,8 +201,5 @@ func networkArgs(mode string, proxy *proxySidecar) []string {
 // preflightFlake guarantees a tracked flake.nix before we get here, so we can
 // always nix develop — no need to handle a missing flake.
 func entrypoint(startup string) string {
-	if startup == "" {
-		startup = "bash"
-	}
 	return fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
 }

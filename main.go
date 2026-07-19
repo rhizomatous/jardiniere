@@ -99,7 +99,7 @@ func run() error {
 		fmt.Fprintln(os.Stderr, ui.RenderSummary(ui.Summary{
 			Runtime:      rt.Name,
 			Image:        cfg.Image,
-			Startup:      startupLabel(cfg),
+			Startup:      cfg.Startup,
 			Network:      cfg.Network.Mode,
 			AllowCount:   len(cfg.Network.Allow),
 			MountCount:   len(cfg.Mounts),
@@ -174,11 +174,4 @@ func buildVersion() string {
 		}
 	}
 	return version
-}
-
-func startupLabel(c config.Config) string {
-	if c.Startup == "" {
-		return "bash"
-	}
-	return c.Startup
 }
