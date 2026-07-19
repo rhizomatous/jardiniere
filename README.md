@@ -2,6 +2,14 @@
 
 a Nix-based sandbox for running coding agents in a repo. point `jard` at a Nix-based repo to spin up Linux container, install the repo's Nix config, and drop into a working dev env with the agent of your choice.
 
+## install
+
+grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest), or install with Go:
+
+```sh
+go install github.com/rhizomatous/jardiniere/cmd/jard@latest
+```
+
 ## usage
 
 ```sh

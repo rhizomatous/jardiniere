@@ -15,7 +15,7 @@ test:      ## unit tests
 	go test ./...
 
 build:     ## build the jard binary
-	go build -ldflags "-X main.version=$(VERSION)" -o jard .
+	go build -ldflags "-X main.version=$(VERSION)" -o jard ./cmd/jard
 
 check: fmt-check lint test ## run every check
 

@@ -12,7 +12,7 @@ before:
 builds:
   - id: jard
     binary: jard
-    main: .
+    main: ./cmd/jard
     env:
       - CGO_ENABLED=0
     # inject the version into the same symbol the Makefile uses.

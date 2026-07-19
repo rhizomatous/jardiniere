@@ -21,7 +21,7 @@ All tooling is provided in Nix dev shell: **work inside it.**
 
 ## Layout
 
-- `main.go`: CLI flags, orchestration, preflight checks.
+- `cmd/jard`: CLI flags, orchestration, preflight checks (the `main` package).
 - `internal/config`: parses the `jardiniere.toml` config file.
 - `internal/runtime`: detects the container runtime.
 - `internal/sandbox`: assembles and runs the container invocation.
