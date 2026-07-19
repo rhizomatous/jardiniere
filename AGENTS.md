@@ -1,0 +1,33 @@
+# AGENTS.md
+
+**jardinière** (`jard`) is a Go CLI that runs coding agents inside isolated, Nix-based container sandboxes. Read `README.md` for an in-depth description.
+
+## Dev environment
+
+All tooling is provided in Nix dev shell: **work inside it.**
+
+## Commands
+
+- See `Makefile` for the common dev commands.
+- `jard --dry-run`: print the exact `docker run` command without executing it. the best way to inspect behavior without a live runtime.
+
+## Conventions
+
+- **Formatting:** gofumpt & goimports.
+- **Linting:** golangci-lint (staticcheck for bugs; revive for style; errcheck, gocritic, errorlint, etc.). Keep it at 0 issues.
+- **Doc comments:** standard Go form.
+- **Prose:** comments are lowercase and terse.
+- **Errors:** lowercase, no trailing punctuation; `errors.New` for static strings, `fmt.Errorf` + `%w` when wrapping.
+- **Commits:** conventional and scoped. `feat(sandbox): …`, `chore(docs): …`.
+
+## Layout
+
+- `main.go`: CLI flags, orchestration, preflight checks.
+- `internal/config`: parses the `jardiniere.toml` config file.
+- `internal/runtime`: detects the container runtime.
+- `internal/sandbox`: assembles and runs the container invocation.
+- `internal/ui`: Charm-based terminal output.
+
+## Testing
+
+Unit tests are **pure**,with no container runtime required (they cover arg-building, parsing, config generation). Keep them that way: inject dependencies like `goos` rather than reading globals. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
