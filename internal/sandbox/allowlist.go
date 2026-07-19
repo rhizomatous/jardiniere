@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	rt "github.com/vivshaw/jardiniere/internal/runtime"
+	"github.com/vivshaw/jardiniere/internal/container"
 	"github.com/vivshaw/jardiniere/internal/ui"
 )
 
@@ -31,7 +31,7 @@ const (
 
 // proxySidecar holds the resources backing one allowlist run's egress proxy.
 type proxySidecar struct {
-	rt          rt.Runtime
+	rt          container.Runtime
 	internalNet string // sandbox joins this; no internet route
 	externalNet string // proxy also joins this to reach the world
 	proxyName   string

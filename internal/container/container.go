@@ -1,6 +1,6 @@
-// Package runtime detects which OCI container runtime jard should drive. we probe for any known CLI whose
+// Package container detects which OCI container runtime jard should drive. we probe for any known CLI whose
 // daemon is reachable, then use that.
-package runtime
+package container
 
 import (
 	"context"
@@ -58,7 +58,8 @@ func detect(ctx context.Context, requireReachable bool) (Runtime, error) {
 		return Runtime{}, fmt.Errorf(
 			"found %s but its daemon is not reachable — is the VM/engine running? "+
 				"(start OrbStack/Docker Desktop, or `podman machine start`)",
-			strings.Join(installedButDown, ", "))
+			strings.Join(installedButDown, ", "),
+		)
 	}
 	return Runtime{}, fmt.Errorf("no container runtime found on PATH (looked for %s)",
 		strings.Join(order, ", "))

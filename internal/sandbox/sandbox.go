@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/vivshaw/jardiniere/internal/config"
-	rt "github.com/vivshaw/jardiniere/internal/runtime"
+	"github.com/vivshaw/jardiniere/internal/container"
 )
 
 // nixStoreVolume is a persistent named volume mounted at /nix so the Nix store
@@ -43,7 +43,7 @@ func (g GitIdentity) Label() string {
 
 // Options fully describes one sandbox run.
 type Options struct {
-	Runtime  rt.Runtime
+	Runtime  container.Runtime
 	Config   config.Config
 	RepoDir  string // absolute path to the repo, bind-mounted at /work
 	Identity GitIdentity

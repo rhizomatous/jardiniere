@@ -16,7 +16,7 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/vivshaw/jardiniere/internal/config"
-	"github.com/vivshaw/jardiniere/internal/runtime"
+	"github.com/vivshaw/jardiniere/internal/container"
 	"github.com/vivshaw/jardiniere/internal/sandbox"
 	"github.com/vivshaw/jardiniere/internal/ui"
 )
@@ -41,7 +41,8 @@ func main() {
 
 func run() error {
 	var cli cli
-	kong.Parse(&cli,
+	kong.Parse(
+		&cli,
 		kong.Name("jard"),
 		kong.Description("drops you into an isolated, Nix-based dev sandbox for a repo"),
 		kong.UsageOnError(),
@@ -72,9 +73,9 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	detect := runtime.Detect
+	detect := container.Detect
 	if cli.DryRun {
-		detect = runtime.DetectInstalled
+		detect = container.DetectInstalled
 	}
 	rt, err := detect(ctx)
 	if err != nil {

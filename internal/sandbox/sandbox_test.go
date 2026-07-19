@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/vivshaw/jardiniere/internal/config"
-	rt "github.com/vivshaw/jardiniere/internal/runtime"
+	"github.com/vivshaw/jardiniere/internal/container"
 )
 
 func TestSSHAgentHostSocket(t *testing.T) {
@@ -53,7 +53,7 @@ func TestNetworkArgs(t *testing.T) {
 }
 
 func TestBuildArgsNetworkNone(t *testing.T) {
-	base := Options{Runtime: rt.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
+	base := Options{Runtime: container.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
 
 	none := base
 	none.Config.Network.Mode = config.NetworkNone
@@ -70,7 +70,7 @@ func TestBuildArgsNetworkNone(t *testing.T) {
 
 func TestBuildArgsAllowlist(t *testing.T) {
 	opts := Options{
-		Runtime: rt.Runtime{Name: "docker"},
+		Runtime: container.Runtime{Name: "docker"},
 		Config:  config.Config{Network: config.NetworkConfig{Mode: config.NetworkAllowlist, Allow: []string{"github.com"}}},
 		RepoDir: "/repo",
 	}
@@ -104,7 +104,7 @@ func TestBuildArgsAgentForwarding(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			opts := Options{
-				Runtime: rt.Runtime{Name: tc.runtime, Path: tc.runtime},
+				Runtime: container.Runtime{Name: tc.runtime, Path: tc.runtime},
 				Config:  config.Defaults(),
 				RepoDir: "/repo",
 				SSHSock: "/host/agent.sock",
