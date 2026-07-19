@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-19
+
 ### Added
 
 - Core sandbox: run coding agents inside a Nix-enabled Linux container, with the target repo bind-mounted at `/work` and a persistent `/nix` store volume.
@@ -17,4 +19,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `jardiniere.toml` config file, supporting a custom `startup` command, `image` override, and network policy.
 - Kong-based CLI with `--version` and `--dry-run` flags.
 
-[Unreleased]: https://github.com/vivshaw/jardiniere/commits/main
+[Unreleased]: https://github.com/rhizomatous/jardiniere/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/rhizomatous/jardiniere/releases/tag/v0.1.0

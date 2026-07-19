@@ -23,6 +23,7 @@
             golangci-lint # lint & static analysis
             gofumpt # stricter gofmt
             lefthook # git hooks manager
+            goreleaser # release build & publish
           ];
           shellHook = ''
             # install the git hooks defined in lefthook.yml
