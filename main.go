@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -20,11 +21,15 @@ import (
 	"github.com/vivshaw/jardiniere/internal/ui"
 )
 
+// version is exactly what it says on the tin.
+var version = "dev"
+
 // cli is jard's command-line interface.
 type cli struct {
-	Dir    string `default:"." help:"target repository directory to sandbox"`
-	Image  string `help:"override the base runner image"`
-	DryRun bool   `help:"print the container command instead of running it"`
+	Dir     string           `default:"." help:"target repository directory to sandbox"`
+	Image   string           `help:"override the base runner image"`
+	DryRun  bool             `help:"print the container command instead of running it"`
+	Version kong.VersionFlag `help:"print version and exit"`
 }
 
 func main() {
@@ -40,6 +45,7 @@ func run() error {
 		kong.Name("jard"),
 		kong.Description("drops you into an isolated, Nix-based dev sandbox for a repo"),
 		kong.UsageOnError(),
+		kong.Vars{"version": buildVersion()},
 	)
 
 	repoDir, err := filepath.Abs(cli.Dir)
@@ -104,7 +110,7 @@ func run() error {
 	return sandbox.Run(ctx, opts)
 }
 
-// check that there's a valid git flake.
+// prefligthFlake checks that there's a valid git flake.
 func preflightFlake(repoDir string) error {
 	if _, err := os.Stat(filepath.Join(repoDir, "flake.nix")); err != nil {
 		return errors.New("no flake.nix found")
@@ -125,7 +131,7 @@ func insideGitWorkTree(dir string) bool {
 	return exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Run() == nil
 }
 
-// reads the user's commit identity from their global git config
+// hostGitIdentity reads the user's commit identity from their global git config
 // so sandbox commits are authored as them. missing values are omitted.
 func hostGitIdentity() sandbox.GitIdentity {
 	return sandbox.GitIdentity{
@@ -140,6 +146,33 @@ func gitConfig(key string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// buildVersion resolves the string shown by --version. it prefers a value
+// injected via -ldflags, then falls back to VCS build info if absent.
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	// set when installed via `go install ...@version`
+	if v := info.Main.Version; v != "" && v != "(devel)" {
+		return v
+	}
+	// otherwise synthesize from the embedded git revision
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" {
+			rev := s.Value
+			if len(rev) > 12 {
+				rev = rev[:12]
+			}
+			return "dev-" + rev
+		}
+	}
+	return version
 }
 
 func startupLabel(c config.Config) string {

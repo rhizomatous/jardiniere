@@ -1,5 +1,7 @@
 .PHONY: fmt fmt-check lint test build check
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 fmt:       ## apply formatters (gofumpt & goimports)
 	golangci-lint fmt
 
@@ -13,6 +15,6 @@ test:      ## unit tests
 	go test ./...
 
 build:     ## build the jard binary
-	go build -o jard .
+	go build -ldflags "-X main.version=$(VERSION)" -o jard .
 
 check: fmt-check lint test ## run every check
