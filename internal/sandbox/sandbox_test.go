@@ -11,11 +11,11 @@ import (
 
 func TestSSHAgentHostSocket(t *testing.T) {
 	tests := []struct {
-		name              string
-		goos, rt, hostSk  string
-		wantPath          string
-		wantOK            bool
-		wantReasonSubstr  string // "" means reason must be empty
+		name             string
+		goos, rt, hostSk string
+		wantPath         string
+		wantOK           bool
+		wantReasonSubstr string // "" means reason must be empty
 	}{
 		{"no host agent", "darwin", "docker", "", "", false, ""},
 		{"linux mounts real socket", "linux", "docker", "/tmp/agent.sock", "/tmp/agent.sock", true, ""},

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -98,17 +99,22 @@ func run() error {
 // check that there's a valid git flake.
 func preflightFlake(repoDir string) error {
 	if _, err := os.Stat(filepath.Join(repoDir, "flake.nix")); err != nil {
-		return fmt.Errorf("no flake.nix found. jard needs a Nix flake to build your dev env.")
+		return errors.New("no flake.nix found")
 	}
 	// non-Git directory: flake presence is enough.
-	if exec.Command("git", "-C", repoDir, "rev-parse", "--is-inside-work-tree").Run() != nil {
+	if !insideGitWorkTree(repoDir) {
 		return nil
 	}
 	// Git repo: `nix develop` reads only tracked files, so flake must be tracked.
 	if exec.Command("git", "-C", repoDir, "ls-files", "--error-unmatch", "flake.nix").Run() != nil {
-		return fmt.Errorf("flake.nix is not tracked by git. you're in a Git repo, so it must be tracked.")
+		return errors.New("flake.nix is not tracked by git")
 	}
 	return nil
+}
+
+// insideGitWorkTree reports whether dir is within a git working tree.
+func insideGitWorkTree(dir string) bool {
+	return exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Run() == nil
 }
 
 // reads the user's commit identity from their global git config

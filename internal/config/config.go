@@ -57,7 +57,7 @@ func Load(dir string) (Config, error) {
 		}
 		return cfg, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sc := bufio.NewScanner(f)
 	line := 0

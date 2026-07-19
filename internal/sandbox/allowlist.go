@@ -132,12 +132,12 @@ func (p *proxySidecar) waitReady(ctx context.Context) error {
 // exec (not the run's context) so teardown still happens after a Ctrl-C.
 func (p *proxySidecar) cleanup() {
 	if p.started {
-		exec.Command(p.rt.Path, "rm", "-f", p.proxyName).Run()
-		exec.Command(p.rt.Path, "network", "rm", p.internalNet).Run()
-		exec.Command(p.rt.Path, "network", "rm", p.externalNet).Run()
+		_ = exec.Command(p.rt.Path, "rm", "-f", p.proxyName).Run()
+		_ = exec.Command(p.rt.Path, "network", "rm", p.internalNet).Run()
+		_ = exec.Command(p.rt.Path, "network", "rm", p.externalNet).Run()
 	}
 	if p.tmpDir != "" {
-		os.RemoveAll(p.tmpDir)
+		_ = os.RemoveAll(p.tmpDir)
 	}
 }
 

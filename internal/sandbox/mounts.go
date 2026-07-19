@@ -30,7 +30,7 @@ func resolveMounts(specs []string, hostHome string) ([]string, error) {
 }
 
 // `parseMount` parses "source[:target][:mode]", where mode is ro|rw.
-// `~`` in source expands to the host home; `~` in target to the container home.
+// `~` in source expands to the host home; `~` in target to the container home.
 // target defaults to source (so "~/.aws" mounts the host's ~/.aws at the
 // container's ~/.aws).
 func parseMount(spec, hostHome string) (src, dst, mode string, err error) {

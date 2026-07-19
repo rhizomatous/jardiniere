@@ -9,19 +9,19 @@ import (
 func TestParseMount(t *testing.T) {
 	const home = "/home/viv"
 	tests := []struct {
-		spec                 string
-		wantSrc, wantDst     string
-		wantMode             string
-		wantErr              bool
+		spec             string
+		wantSrc, wantDst string
+		wantMode         string
+		wantErr          bool
 	}{
 		{spec: "~/.aws", wantSrc: "/home/viv/.aws", wantDst: "/root/.aws", wantMode: "ro"},
 		{spec: "~/.aws:rw", wantSrc: "/home/viv/.aws", wantDst: "/root/.aws", wantMode: "rw"},
 		{spec: "/etc/hosts:/etc/hosts:ro", wantSrc: "/etc/hosts", wantDst: "/etc/hosts", wantMode: "ro"},
 		{spec: "~/.cfg:~/.config/app", wantSrc: "/home/viv/.cfg", wantDst: "/root/.config/app", wantMode: "ro"},
-		{spec: "relative/path", wantErr: true},            // source not absolute
-		{spec: "~/a:relative", wantErr: true},             // target not absolute
-		{spec: "a:b:c:d", wantErr: true},                  // too many segments
-		{spec: "", wantErr: true},                         // empty
+		{spec: "relative/path", wantErr: true}, // source not absolute
+		{spec: "~/a:relative", wantErr: true},  // target not absolute
+		{spec: "a:b:c:d", wantErr: true},       // too many segments
+		{spec: "", wantErr: true},              // empty
 	}
 	for _, tc := range tests {
 		t.Run(tc.spec, func(t *testing.T) {

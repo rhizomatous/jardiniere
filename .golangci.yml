@@ -1,0 +1,35 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - misspell
+    - nakedret
+    - nilerr
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+
+  exclusions:
+    generated: lax
+    rules:
+      # some test helpers legitimately have unused params
+      - path: _test\.go
+        linters:
+          - unparam
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/vivshaw/jardiniere

@@ -27,7 +27,7 @@ image = "nixos/nix:latest"
 
 ```
 jard  →  read ./jardiniere.toml
-      →  detect whatever OCI runtime is present (docker / podman / orbstack)
+      →  detect whatever OCI runtime is present (docker / podman / orbstack / etc.)
       →  run a Nix-enabled Linux container with:
            • repo bind-mounted at /work    (git commit to the host fs)
            • persistent /nix store volume  (fast cold starts)
@@ -62,10 +62,3 @@ in `allowlist` mode, the sandbox joins an isolated network with no direct route 
 # preview the exact terminal command that will be run
 jard --dry-run
 ```
-
-### roadmap
-
-- **v0** ✅ config, runtime detection, repo mount, `nix develop` loop, git identity
-- **v1** ✅ ssh-agent forwarding on macOS (docker-family), polished Charm CLI
-- **v2** (in progress) network policy `none`/`full`/`allowlist` ✅ · extra mounts ✅ ·
-  a purpose-built two-layer runner image, `colima` auto-provision
