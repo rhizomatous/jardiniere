@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,11 +12,20 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/alecthomas/kong"
+
 	"github.com/vivshaw/jardiniere/internal/config"
 	"github.com/vivshaw/jardiniere/internal/runtime"
 	"github.com/vivshaw/jardiniere/internal/sandbox"
 	"github.com/vivshaw/jardiniere/internal/ui"
 )
+
+// cli is jard's command-line interface.
+type cli struct {
+	Dir    string `default:"." help:"target repository directory to sandbox"`
+	Image  string `help:"override the base runner image"`
+	DryRun bool   `help:"print the container command instead of running it"`
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -27,14 +35,14 @@ func main() {
 }
 
 func run() error {
-	var (
-		dir    = flag.String("dir", ".", "target repository directory to sandbox")
-		image  = flag.String("image", "", "override the base runner image")
-		dryRun = flag.Bool("dry-run", false, "print the container command instead of running it")
+	var cli cli
+	kong.Parse(&cli,
+		kong.Name("jard"),
+		kong.Description("drops you into an isolated, Nix-based dev sandbox for a repo"),
+		kong.UsageOnError(),
 	)
-	flag.Parse()
 
-	repoDir, err := filepath.Abs(*dir)
+	repoDir, err := filepath.Abs(cli.Dir)
 	if err != nil {
 		return fmt.Errorf("resolving --dir: %w", err)
 	}
@@ -46,8 +54,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if *image != "" {
-		cfg.Image = *image
+	if cli.Image != "" {
+		cfg.Image = cli.Image
 	}
 
 	if err := preflightFlake(repoDir); err != nil {
@@ -59,7 +67,7 @@ func run() error {
 	defer stop()
 
 	detect := runtime.Detect
-	if *dryRun {
+	if cli.DryRun {
 		detect = runtime.DetectInstalled
 	}
 	rt, err := detect(ctx)
@@ -76,10 +84,10 @@ func run() error {
 		RepoDir:  repoDir,
 		Identity: identity,
 		SSHSock:  sshSock,
-		DryRun:   *dryRun,
+		DryRun:   cli.DryRun,
 	}
 
-	if !*dryRun {
+	if !cli.DryRun {
 		forwarded, detail := sandbox.SSHAgentStatus(rt.Name, sshSock)
 		fmt.Fprintln(os.Stderr, ui.RenderSummary(ui.Summary{
 			Runtime:      rt.Name,
