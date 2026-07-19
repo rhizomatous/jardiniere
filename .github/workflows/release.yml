@@ -41,3 +41,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # scoped PAT with contents:write on rhizomatous/homebrew-tap, so
+          # goreleaser can push the cask to the tap. release still succeeds
+          # if unset (the cask upload is skipped). org secret.
+          HOMEBREW_TAP_TOKEN: ${{ secrets.RHIZOME_HOMEBREW_RELEASE_TOKEN }}

@@ -4,7 +4,13 @@ a Nix-based sandbox for running coding agents in a repo. point `jard` at a Nix-b
 
 ## install
 
-grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest), or install with Go:
+on macOS, install with Homebrew:
+
+```sh
+brew install rhizomatous/tap/jard
+```
+
+or grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest), or install with Go:
 
 ```sh
 go install github.com/rhizomatous/jardiniere/cmd/jard@latest
