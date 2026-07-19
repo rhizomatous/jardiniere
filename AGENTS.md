@@ -18,7 +18,6 @@ All tooling is provided in Nix dev shell: **work inside it.**
 - **Doc comments:** standard Go form. Do not write archaeological comments describing past states and changes.
 - **Prose:** comments are lowercase and terse.
 - **Errors:** lowercase, no trailing punctuation; `errors.New` for static strings, `fmt.Errorf` + `%w` when wrapping.
-- **Commits:** conventional and scoped. `feat(sandbox): …`, `chore(docs): …`.
 
 ## Layout
 
@@ -31,3 +30,9 @@ All tooling is provided in Nix dev shell: **work inside it.**
 ## Testing
 
 Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, config generation, etc. Keep them that way: inject dependencies like `goos` rather than reading globals. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
+
+## Committing, Versioning, Releasing
+
+- Use [Conventional Commits](https://www.conventionalcommits.org/). Always include the scope:  `feat(sandbox): ...`, `chore(docs): ...`. View the git log for examples of scopes used in the project.
+- Keep `CHANGELOG.md` up to date. Use [Keep a Changelog](https://keepachangelog.com/) guidelines for waht goes in it.
+- Use [Semantic Versioning](https://semver.org)

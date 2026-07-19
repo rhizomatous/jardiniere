@@ -1,0 +1,20 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Core sandbox: run coding agents inside a Nix-enabled Linux container, with the target repo bind-mounted at `/work` and a persistent `/nix` store volume.
+- Container runtime autodetection across Docker, Podman, OrbStack, and other OCI-compatible runtimes.
+- Git identity injection so the agent can author commits as you.
+- SSH-agent forwarding on Linux, and on macOS when using Docker or OrbStack.
+- Network policy, including an allowlist mode.
+- Configurable extra host mounts.
+- `jardiniere.toml` config file, supporting a custom `startup` command, `image` override, and network policy.
+- Kong-based CLI with `--version` and `--dry-run` flags.
+
+[Unreleased]: https://github.com/vivshaw/jardiniere/commits/main
