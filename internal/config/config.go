@@ -62,23 +62,23 @@ func Load(dir string) (Config, error) {
 		if os.IsNotExist(err) {
 			return Defaults(), nil
 		}
-		return Defaults(), err
+		return Config{}, err
 	}
 
 	// decode over the defaults so omitted keys keep their default values.
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
-		return Defaults(), fmt.Errorf("%s: %w", path, err)
+		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
-		return Defaults(), fmt.Errorf("%s: unknown key %q", path, undecoded[0].String())
+		return Config{}, fmt.Errorf("%s: unknown key %q", path, undecoded[0].String())
 	}
 
 	if err := validateNetwork(cfg.Network.Mode); err != nil {
-		return Defaults(), fmt.Errorf("%s: %w", path, err)
+		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	if cfg.Network.Mode == NetworkAllowlist && len(cfg.Network.Allow) == 0 {
-		return Defaults(), fmt.Errorf(`%s: network = "allowlist" requires a non-empty `+"`allow`"+` list of hosts`, path)
+		return Config{}, fmt.Errorf(`%s: network = "allowlist" requires a non-empty `+"`allow`"+` list of hosts`, path)
 	}
 	return cfg, nil
 }

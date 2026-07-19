@@ -53,7 +53,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("resolving --dir: %w", err)
 	}
-	if fi, err := os.Stat(repoDir); err != nil || !fi.IsDir() {
+	fi, err := os.Stat(repoDir)
+	if err != nil {
+		return fmt.Errorf("cannot access %s: %w", repoDir, err)
+	}
+	if !fi.IsDir() {
 		return fmt.Errorf("%s is not a directory", repoDir)
 	}
 
