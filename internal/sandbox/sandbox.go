@@ -1,4 +1,4 @@
-// `sandbox` assembles and runs a container invocation to drop the
+// Package sandbox assembles and runs a container invocation to drop the
 // user into an isolated, Nix-based dev environment for a target repo.
 package sandbox
 
@@ -14,20 +14,20 @@ import (
 	rt "github.com/vivshaw/jardiniere/internal/runtime"
 )
 
-// `nixStoreVolume` is a persistent named volume mounted at /nix so the Nix store
+// nixStoreVolume is a persistent named volume mounted at /nix so the Nix store
 // survives across runs. after the first run, subsequent runs can reuse everything
 // already built or fetched for faster cold starts.
 const nixStoreVolume = "jardiniere-nix"
 
-// `GitIdentity` carries the host user's commit identity into the sandbox via
+// GitIdentity carries the host user's commit identity into the sandbox via
 // environment variables. this way, commits can be authored "as you".
 type GitIdentity struct {
 	Name  string
 	Email string
 }
 
-// `label` renders the identity for display, e.g. "viv shaw <hey@vivsha.ws>".
-// returns `""` when nothing is configured.
+// Label renders the identity for display, e.g. "viv shaw <hey@vivsha.ws>".
+// returns "" when nothing is configured.
 func (g GitIdentity) Label() string {
 	switch {
 	case g.Name != "" && g.Email != "":
@@ -41,7 +41,7 @@ func (g GitIdentity) Label() string {
 	}
 }
 
-// `Options` fully describes one sandbox run.
+// Options fully describes one sandbox run.
 type Options struct {
 	Runtime  rt.Runtime
 	Config   config.Config
@@ -51,18 +51,18 @@ type Options struct {
 	DryRun   bool   // print the command instead of running it
 }
 
-// `workdir` is where the repo is mounted inside the container.
+// workdir is where the repo is mounted inside the container.
 const workdir = "/work"
 
 const (
-	// `containerSSHSock` is where the forwarded agent socket lands inside the sandbox.
+	// containerSSHSock is where the forwarded agent socket lands inside the sandbox.
 	containerSSHSock = "/ssh-agent"
-	// `dockerVMSSHSock` is the fixed path where both Docker Desktop and OrbStack
+	// dockerVMSSHSock is the fixed path where both Docker Desktop and OrbStack
 	// bridge the macOS host's SSH agent into the Linux VM.
 	dockerVMSSHSock = "/run/host-services/ssh-auth.sock"
 )
 
-// `sshAgentHostSocket` decides which host-side socket to bind-mount for ssh-agent
+// sshAgentHostSocket decides which host-side socket to bind-mount for ssh-agent
 // forwarding, or returns ok=false with a reason.
 //
 //   - Linux: the container shares the host kernel, mount $SSH_AUTH_SOCK directly.
@@ -86,7 +86,7 @@ func sshAgentHostSocket(goos, rtName, hostSock string) (path string, ok bool, re
 	}
 }
 
-// `Run` builds the container command and either executes it (inheriting the
+// Run builds the container command and either executes it (inheriting the
 // terminal for an interactive session) or, under DryRun, prints it.
 func Run(ctx context.Context, opts Options) error {
 	// resolve extra host mounts up front
@@ -124,7 +124,7 @@ func Run(ctx context.Context, opts Options) error {
 	return cmd.Run()
 }
 
-// `SSHAgentStatus` reports whether ssh-agent forwarding will be active for this
+// SSHAgentStatus reports whether ssh-agent forwarding will be active for this
 // runtime and host, plus a human-readable detail. Callers use it to render the
 // run summary.
 func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
@@ -139,7 +139,7 @@ func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
 	}
 }
 
-// `buildArgs` assembles the container `run` arguments. goos is injected (rather
+// buildArgs assembles the container run arguments. goos is injected (rather
 // than read from the global runtime.GOOS) so tests can exercise each platform's
 // ssh-forwarding path, independent of the host they run on.
 func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) (args []string) {
@@ -181,7 +181,7 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 	return args
 }
 
-// `networkArgs` maps a network policy to its `docker run` networking arguments:
+// networkArgs maps a network policy to its docker run networking arguments:
 //
 //	none      → --network none
 //	allowlist → --network <isolated net> + proxy env vars
@@ -197,9 +197,9 @@ func networkArgs(mode string, proxy *proxySidecar) []string {
 	}
 }
 
-// `entrypoint` enters the repo's own dev shell and runs the startup command.
+// entrypoint enters the repo's own dev shell and runs the startup command.
 // preflightFlake guarantees a tracked flake.nix before we get here, so we can
-// always `nix develop` — no need to handle a missing flake.
+// always nix develop — no need to handle a missing flake.
 func entrypoint(startup string) string {
 	if startup == "" {
 		startup = "bash"

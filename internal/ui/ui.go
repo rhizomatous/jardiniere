@@ -1,4 +1,4 @@
-// `ui` holds jard's terminal presentation: a shared logger and the run summary.
+// Package ui holds jard's terminal presentation: a shared logger and the run summary.
 //
 // styling degrades to plain text automatically when output is piped
 // or redirected.
@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// `Log` is the shared stderr logger.
+// Log is the shared stderr logger.
 var Log = log.NewWithOptions(os.Stderr, log.Options{ReportTimestamp: false})
 
 // colors chosen to read on both light and dark terminals.
@@ -26,7 +26,7 @@ var (
 	arrowStyle = lipgloss.NewStyle().Faint(true)
 )
 
-// `Summary` is the data shown before a sandbox starts.
+// Summary is the data shown before a sandbox starts.
 type Summary struct {
 	Runtime      string // e.g. "docker"
 	Image        string // e.g. "nixos/nix:latest"
@@ -39,7 +39,7 @@ type Summary struct {
 	Identity     string // "viv shaw <hey@vivsha.ws>", or "" when unset
 }
 
-// `RenderSummary` returns the multi-line block printed to stderr before entering
+// RenderSummary returns the multi-line block printed to stderr before entering
 // the sandbox.
 func RenderSummary(s Summary) string {
 	row := func(label, val string) string {

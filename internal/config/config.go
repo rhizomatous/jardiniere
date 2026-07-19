@@ -1,9 +1,9 @@
-// `config` reads the per-repo `jardiniere.toml` that tells jard how to
+// Package config reads the per-repo jardiniere.toml that tells jard how to
 // enter a sandbox for a given repository.
 //
 // schema:
 //
-//	startup = "claude"            # command run inside `nix develop`. default "bash"
+//	startup = "claude"            # command run inside nix develop. default "bash"
 //	image   = "nixos/nix:latest"  # base runner image override. default "nixos/nix:latest"
 //	network = "full"              # "none" | "allowlist" | "full"
 //	allow   = ["github.com"]      # allowlist hosts (allowlist mode)
@@ -18,17 +18,17 @@ import (
 	"strings"
 )
 
-// the config file jard looks for at the root of a target repo.
+// FileName is the config file jard looks for at the root of a target repo.
 const FileName = "jardiniere.toml"
 
-// network policy modes for the `network` key.
+// network policy modes for the network key.
 const (
 	NetworkFull      = "full"      // unrestricted network (default)
 	NetworkNone      = "none"      // no network at all
 	NetworkAllowlist = "allowlist" // only hosts listed in Allow
 )
 
-// the parsed `jardiniere.toml`.
+// Config is the parsed jardiniere.toml.
 type Config struct {
 	Startup string   // command to run inside the dev env
 	Image   string   // base runner image
@@ -37,7 +37,7 @@ type Config struct {
 	Mounts  []string // extra host mounts, each "source[:target][:ro|rw]"
 }
 
-// default config used when a repo has no `jardiniere.toml`.
+// Defaults returns the config used when a repo has no jardiniere.toml.
 func Defaults() Config {
 	return Config{
 		Startup: "bash",
@@ -46,7 +46,7 @@ func Defaults() Config {
 	}
 }
 
-// reads `jardiniere.toml` from dir, falling back to `Defaults()` for any omitted key.
+// Load reads jardiniere.toml from dir, falling back to Defaults for any omitted key.
 func Load(dir string) (Config, error) {
 	cfg := Defaults()
 	path := filepath.Join(dir, FileName)
@@ -94,7 +94,7 @@ func Load(dir string) (Config, error) {
 	return cfg, nil
 }
 
-// `validateNetwork` rejects unknown `network` values up front.
+// validateNetwork rejects unknown network values up front.
 func validateNetwork(mode string) error {
 	switch mode {
 	case NetworkFull, NetworkNone, NetworkAllowlist:
@@ -105,8 +105,8 @@ func validateNetwork(mode string) error {
 	}
 }
 
-// `parseLine` splits a "key = value" line, skipping blanks and # comments.
-// returns `ok=false` for lines that carry no assignment.
+// parseLine splits a "key = value" line, skipping blanks and # comments.
+// returns ok=false for lines that carry no assignment.
 func parseLine(raw string) (key, val string, ok bool) {
 	s := strings.TrimSpace(stripComment(raw))
 	if s == "" {
@@ -119,7 +119,7 @@ func parseLine(raw string) (key, val string, ok bool) {
 	return strings.TrimSpace(s[:eq]), strings.TrimSpace(s[eq+1:]), true
 }
 
-// `stripComment` removes a trailing # comment while respecting quoted strings so
+// stripComment removes a trailing # comment while respecting quoted strings so
 // a "#" inside a value is preserved.
 func stripComment(s string) string {
 	inQuote := false
@@ -136,12 +136,12 @@ func stripComment(s string) string {
 	return s
 }
 
-// `str` unquotes a scalar string value.
+// str unquotes a scalar string value.
 func str(v string) string {
 	return strings.Trim(strings.TrimSpace(v), `"`)
 }
 
-// `arr` parses a `["a", "b"]` inline array into a slice of unquoted strings.
+// arr parses an ["a", "b"] inline array into a slice of unquoted strings.
 func arr(v string) []string {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "[")

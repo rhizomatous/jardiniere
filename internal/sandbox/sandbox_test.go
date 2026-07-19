@@ -88,7 +88,7 @@ func TestBuildArgsAllowlist(t *testing.T) {
 	}
 }
 
-// `TestBuildArgsAgentForwarding` checks that the correct forwarding flags are
+// TestBuildArgsAgentForwarding checks that the correct forwarding flags are
 // passed to the container invocation, per platform.
 func TestBuildArgsAgentForwarding(t *testing.T) {
 	tests := []struct {

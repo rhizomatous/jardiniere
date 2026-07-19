@@ -105,7 +105,7 @@ func preflightFlake(repoDir string) error {
 	if !insideGitWorkTree(repoDir) {
 		return nil
 	}
-	// Git repo: `nix develop` reads only tracked files, so flake must be tracked.
+	// Git repo: nix develop reads only tracked files, so flake must be tracked.
 	if exec.Command("git", "-C", repoDir, "ls-files", "--error-unmatch", "flake.nix").Run() != nil {
 		return errors.New("flake.nix is not tracked by git")
 	}

@@ -15,21 +15,21 @@ import (
 	"github.com/vivshaw/jardiniere/internal/ui"
 )
 
-// we implement `network = "allowlist"` via a proxy sidecar.
-// the sandbox container joins an `--internal`` docker network, with no route
+// we implement network = "allowlist" via a proxy sidecar.
+// the sandbox container joins an --internal docker network, with no route
 // to the internet. its only reachable peer is a dual-homed tinyproxy container
 // that filters CONNECT by host.
 
 const (
 	proxyPort  = "8888"
-	proxyImage = "nixos/nix:latest" // runs tinyproxy via `nix run`
-	// `readyMarker` is tinyproxy's log line once it's accepting connections.
+	proxyImage = "nixos/nix:latest" // runs tinyproxy via nix run
+	// readyMarker is tinyproxy's log line once it's accepting connections.
 	readyMarker = "Accepting connections"
-	// `proxyReadyTimeout` is generous because the first run fetches tinyproxy.
+	// proxyReadyTimeout is generous because the first run fetches tinyproxy.
 	proxyReadyTimeout = 3 * time.Minute
 )
 
-// `proxySidecar` holds the resources backing one allowlist run's egress proxy.
+// proxySidecar holds the resources backing one allowlist run's egress proxy.
 type proxySidecar struct {
 	rt          rt.Runtime
 	internalNet string // sandbox joins this; no internet route
@@ -40,8 +40,8 @@ type proxySidecar struct {
 	started     bool   // whether resources were actually created (for cleanup)
 }
 
-// `planProxySidecar` derives the names/wiring without creating anything, so
-// `--dry-run` can show a representative command.
+// planProxySidecar derives the names/wiring without creating anything, so
+// --dry-run can show a representative command.
 func planProxySidecar(opts Options) *proxySidecar {
 	id := strconv.Itoa(os.Getpid())
 	return &proxySidecar{
@@ -53,13 +53,13 @@ func planProxySidecar(opts Options) *proxySidecar {
 	}
 }
 
-// `proxyURL` is where the sandbox reaches the proxy over the internal network,
+// proxyURL is where the sandbox reaches the proxy over the internal network,
 // resolved by docker's embedded DNS.
 func (p *proxySidecar) proxyURL() string {
 	return "http://" + p.proxyName + ":" + proxyPort
 }
 
-// `envArgs` points the sandbox's clients at the proxy. without these,
+// envArgs points the sandbox's clients at the proxy. without these,
 // the agent won't know how to connect to anything.
 func (p *proxySidecar) envArgs() []string {
 	u := p.proxyURL()
@@ -70,8 +70,8 @@ func (p *proxySidecar) envArgs() []string {
 	}
 }
 
-// `start` creates the networks, launches the filtering proxy, and blocks until
-// it's ready. n.b., on any failure the caller must still call `cleanup`.
+// start creates the networks, launches the filtering proxy, and blocks until
+// it's ready. n.b., on any failure the caller must still call cleanup.
 func (p *proxySidecar) start(ctx context.Context) error {
 	dir, err := os.MkdirTemp("", "jard-proxy-")
 	if err != nil {
@@ -85,14 +85,14 @@ func (p *proxySidecar) start(ctx context.Context) error {
 		return err
 	}
 
-	p.started = true // from here on, `cleanup` has resources to remove
+	p.started = true // from here on, cleanup has resources to remove
 	if err := p.docker(ctx, "network", "create", "--internal", p.internalNet); err != nil {
 		return err
 	}
 	if err := p.docker(ctx, "network", "create", p.externalNet); err != nil {
 		return err
 	}
-	// start on the external network so `nix run` can fetch tinyproxy...
+	// start on the external network so nix run can fetch tinyproxy...
 	if err := p.docker(ctx, "run", "-d", "--name", p.proxyName, "--network", p.externalNet,
 		"-v", dir+":/jard-proxy:ro", "-v", nixStoreVolume+":/nix",
 		"-e", "NIX_CONFIG=experimental-features = nix-command flakes",
@@ -108,8 +108,8 @@ func (p *proxySidecar) start(ctx context.Context) error {
 	return p.waitReady(ctx)
 }
 
-// `waitReady` polls the proxy's logs for the ready marker. we read logs rather
-// than `docker exec` because exec-ing a shell trips an "openat etc/group"
+// waitReady polls the proxy's logs for the ready marker. we read logs rather
+// than docker exec because exec-ing a shell trips an "openat etc/group"
 // error on some OrbStack setups.
 func (p *proxySidecar) waitReady(ctx context.Context) error {
 	deadline := time.Now().Add(proxyReadyTimeout)
@@ -128,7 +128,7 @@ func (p *proxySidecar) waitReady(ctx context.Context) error {
 	return fmt.Errorf("allowlist proxy did not become ready within %s:\n%s", proxyReadyTimeout, strings.TrimSpace(string(out)))
 }
 
-// `cleanup` does a best-effort teardown on all resources. deliberately uses plain
+// cleanup does a best-effort teardown on all resources. deliberately uses plain
 // exec (not the run's context) so teardown still happens after a Ctrl-C.
 func (p *proxySidecar) cleanup() {
 	if p.started {
@@ -141,7 +141,7 @@ func (p *proxySidecar) cleanup() {
 	}
 }
 
-// `docker` runs a runtime subcommand, surfacing combined output on failure.
+// docker runs a runtime subcommand, surfacing combined output on failure.
 func (p *proxySidecar) docker(ctx context.Context, args ...string) error {
 	out, err := exec.CommandContext(ctx, p.rt.Path, args...).CombinedOutput()
 	if err != nil {
@@ -163,7 +163,7 @@ FilterCaseSensitive Off
 `
 }
 
-// `filterFile` renders one extended-regex per allowed host. each pattern matches
+// filterFile renders one extended-regex per allowed host. each pattern matches
 // the host exactly and any subdomain of it, e.g. "github.com" also permits
 // "api.github.com". hosts are regex-escaped, so dots are literal.
 func filterFile(allow []string) string {

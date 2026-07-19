@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// `containerHome` is where "~" resolves for mount targets inside the sandbox.
+// containerHome is where "~" resolves for mount targets inside the sandbox.
 // The nixos/nix base image runs as root, so HOME is /root.
 const containerHome = "/root"
 
-// `resolveMounts` turns config mount specs into `docker run -v` arguments,
+// resolveMounts turns config mount specs into docker run -v arguments,
 // validating each and confirming the host source exists.
 func resolveMounts(specs []string, hostHome string) ([]string, error) {
 	var args []string
@@ -29,8 +29,8 @@ func resolveMounts(specs []string, hostHome string) ([]string, error) {
 	return args, nil
 }
 
-// `parseMount` parses "source[:target][:mode]", where mode is ro|rw.
-// `~` in source expands to the host home; `~` in target to the container home.
+// parseMount parses "source[:target][:mode]", where mode is ro|rw.
+// ~ in source expands to the host home; ~ in target to the container home.
 // target defaults to source (so "~/.aws" mounts the host's ~/.aws at the
 // container's ~/.aws).
 func parseMount(spec, hostHome string) (src, dst, mode string, err error) {
@@ -69,7 +69,7 @@ func parseMount(spec, hostHome string) (src, dst, mode string, err error) {
 	return src, dst, mode, nil
 }
 
-// `expandHome` replaces a leading `~` with home.
+// expandHome replaces a leading ~ with home.
 func expandHome(p, home string) string {
 	if home == "" {
 		return p
