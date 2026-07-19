@@ -3,3 +3,6 @@
 *.out
 result
 result-*
+
+# direnv / nix-direnv cache
+/.direnv/
