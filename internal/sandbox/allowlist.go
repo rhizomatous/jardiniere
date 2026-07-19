@@ -150,7 +150,7 @@ func (p *proxySidecar) docker(ctx context.Context, args ...string) error {
 	return nil
 }
 
-// the static proxy config: default-deny, filter by host.
+// tinyproxyConf renders the static proxy config: default-deny, filter by host.
 func tinyproxyConf() string {
 	return "Port " + proxyPort + `
 Listen 0.0.0.0

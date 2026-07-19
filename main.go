@@ -111,7 +111,7 @@ func run() error {
 	return sandbox.Run(ctx, opts)
 }
 
-// prefligthFlake checks that there's a valid git flake.
+// preflightFlake checks that there's a valid, tracked flake.nix.
 func preflightFlake(repoDir string) error {
 	if _, err := os.Stat(filepath.Join(repoDir, "flake.nix")); err != nil {
 		return errors.New("no flake.nix found")
