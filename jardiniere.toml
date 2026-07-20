@@ -1,8 +1,11 @@
 # jardinière sandbox config for this repo.
-# jard reads this on the host and uses it to enter the dev env.
 
-startup = "bash"              # command run inside `nix develop`; e.g. "claude", "opencode"
+startup = "claude"              # launch command run inside `nix develop`. (default = "bash")
 # image = "nixos/nix:latest"  # override the base runner image
+
+# optionally drop a coding agent into the sandbox's nix env:
+#   "none" (default), "opencode", "claude-code", or "codex"
+agent = "claude-code"
 
 # extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
 # mode defaults to read-only.

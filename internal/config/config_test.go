@@ -107,3 +107,35 @@ func TestLoadAllowlistWithoutHostsErrors(t *testing.T) {
 		t.Fatal("expected error for allowlist with empty allow, got nil")
 	}
 }
+
+func TestLoadAgent(t *testing.T) {
+	dir := writeConfig(t, `agent = "claude-code"`)
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Agent != AgentClaudeCode {
+		t.Errorf("agent: got %q, want %q", cfg.Agent, AgentClaudeCode)
+	}
+	if got := AgentPackage(cfg.Agent); got != "claude-code" {
+		t.Errorf("package: got %q, want claude-code", got)
+	}
+}
+
+func TestLoadInvalidAgentErrors(t *testing.T) {
+	dir := writeConfig(t, `agent = "cursor"`)
+	if _, err := Load(dir); err == nil {
+		t.Fatal("expected error for invalid agent, got nil")
+	}
+}
+
+func TestAgentUnfree(t *testing.T) {
+	if !AgentUnfree(AgentClaudeCode) {
+		t.Error("claude-code should be unfree")
+	}
+	for _, a := range []string{AgentNone, AgentOpencode, AgentCodex} {
+		if AgentUnfree(a) {
+			t.Errorf("%q should be free", a)
+		}
+	}
+}

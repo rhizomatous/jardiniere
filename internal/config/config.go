@@ -5,6 +5,7 @@
 //
 //	startup = "claude"            # command run inside nix develop. default "bash"
 //	image   = "nixos/nix:latest"  # base runner image override. default "nixos/nix:latest"
+//	agent   = "claude-code"       # coding agent to add to the env. default "none"
 //	mounts  = ["~/.foo:ro"]       # extra host mounts, source[:target][:ro|rw]
 //
 //	[network]
@@ -30,10 +31,44 @@ const (
 	NetworkAllowlist = "allowlist" // only hosts listed in Allow
 )
 
+// coding agents for the agent key. AgentNone (the default) injects nothing.
+const (
+	AgentNone       = "none"        // no agent injected (default)
+	AgentOpencode   = "opencode"    // sst opencode
+	AgentClaudeCode = "claude-code" // Anthropic Claude Code
+	AgentCodex      = "codex"       // OpenAI Codex CLI
+)
+
+// agentSpec describes how an agent is provided from nixpkgs.
+type agentSpec struct {
+	pkg    string // nixpkgs attribute
+	unfree bool   // whether that package carries an unfree license
+}
+
+// agents maps each supported agent to its nixpkgs package. the unfree flags
+// track nixpkgs licensing at time of writing.
+var agents = map[string]agentSpec{
+	AgentOpencode:   {pkg: "opencode"},                  // MIT
+	AgentClaudeCode: {pkg: "claude-code", unfree: true}, // proprietary
+	AgentCodex:      {pkg: "codex"},                     // Apache-2.0
+}
+
+// AgentPackage returns the nixpkgs attribute for agent, or "" when the agent is
+// AgentNone or unrecognised.
+func AgentPackage(agent string) string {
+	return agents[agent].pkg
+}
+
+// AgentUnfree reports whether the selected agent's nixpkgs package is unfree.
+func AgentUnfree(agent string) bool {
+	return agents[agent].unfree
+}
+
 // Config is the parsed jardiniere.toml.
 type Config struct {
 	Startup string        `toml:"startup"` // command to run inside the dev env
 	Image   string        `toml:"image"`   // base runner image
+	Agent   string        `toml:"agent"`   // coding agent to add to the dev env
 	Mounts  []string      `toml:"mounts"`  // extra host mounts, each "source[:target][:ro|rw]"
 	Network NetworkConfig `toml:"network"` // egress policy
 }
@@ -49,6 +84,7 @@ func Defaults() Config {
 	return Config{
 		Startup: "bash",
 		Image:   "nixos/nix:latest",
+		Agent:   AgentNone,
 		Network: NetworkConfig{Mode: NetworkFull},
 	}
 }
@@ -80,6 +116,9 @@ func Load(dir string) (Config, error) {
 	if cfg.Network.Mode == NetworkAllowlist && len(cfg.Network.Allow) == 0 {
 		return Config{}, fmt.Errorf(`%s: network = "allowlist" requires a non-empty `+"`allow`"+` list of hosts`, path)
 	}
+	if err := validateAgent(cfg.Agent); err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
 	return cfg, nil
 }
 
@@ -92,4 +131,16 @@ func validateNetwork(mode string) error {
 		return fmt.Errorf("invalid network %q: must be %q, %q, or %q",
 			mode, NetworkNone, NetworkAllowlist, NetworkFull)
 	}
+}
+
+// validateAgent rejects unknown agent values up front.
+func validateAgent(agent string) error {
+	if agent == AgentNone {
+		return nil
+	}
+	if _, ok := agents[agent]; ok {
+		return nil
+	}
+	return fmt.Errorf("invalid agent %q: must be %q, %q, %q, or %q",
+		agent, AgentNone, AgentOpencode, AgentClaudeCode, AgentCodex)
 }

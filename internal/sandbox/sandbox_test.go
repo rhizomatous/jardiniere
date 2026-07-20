@@ -88,6 +88,58 @@ func TestBuildArgsAllowlist(t *testing.T) {
 	}
 }
 
+func TestEntrypoint(t *testing.T) {
+	// no agent: a plain nix develop, no nix shell layer.
+	plain := entrypoint("bash", config.AgentNone)
+	if strings.Contains(plain, "nix shell") {
+		t.Errorf("agent=none must not layer nix shell, got %q", plain)
+	}
+	if !strings.Contains(plain, "nix develop "+workdir+" --command bash") {
+		t.Errorf("missing nix develop invocation, got %q", plain)
+	}
+
+	// a free agent: a pure nix shell, no --impure.
+	free := entrypoint("bash", config.AgentOpencode)
+	if !strings.Contains(free, "nix shell nixpkgs#opencode --command bash") {
+		t.Errorf("free agent should layer a pure nix shell, got %q", free)
+	}
+	if strings.Contains(free, "--impure") {
+		t.Errorf("free agent must not use --impure, got %q", free)
+	}
+
+	// an unfree agent: --impure so it can honor NIXPKGS_ALLOW_UNFREE.
+	unfree := entrypoint("bash", config.AgentClaudeCode)
+	if !strings.Contains(unfree, "nix shell --impure nixpkgs#claude-code --command bash") {
+		t.Errorf("unfree agent should layer an impure nix shell, got %q", unfree)
+	}
+}
+
+func TestBuildArgsAgentUnfree(t *testing.T) {
+	base := Options{Runtime: container.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
+	sets := func(o Options) bool {
+		return slices.Contains(buildArgs(o, "linux", nil, nil), "NIXPKGS_ALLOW_UNFREE=1")
+	}
+
+	// no agent: no unfree env var.
+	if sets(base) {
+		t.Error("agent=none must not set NIXPKGS_ALLOW_UNFREE")
+	}
+
+	// free agent: no unfree env var.
+	freeAgent := base
+	freeAgent.Config.Agent = config.AgentCodex
+	if sets(freeAgent) {
+		t.Error("free agent (codex) must not set NIXPKGS_ALLOW_UNFREE")
+	}
+
+	// unfree agent: unfree env var present.
+	unfreeAgent := base
+	unfreeAgent.Config.Agent = config.AgentClaudeCode
+	if !sets(unfreeAgent) {
+		t.Error("unfree agent (claude-code) should set NIXPKGS_ALLOW_UNFREE=1")
+	}
+}
+
 // TestBuildArgsAgentForwarding checks that the correct forwarding flags are
 // passed to the container invocation, per platform.
 func TestBuildArgsAgentForwarding(t *testing.T) {

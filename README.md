@@ -74,7 +74,7 @@ jard --dir ../some-repo
 
 ### configuring
 
-provide a `jardiniere.toml` in your repo to override jardinière's defaults. for example, you might wish one repo to drop you directly into a Claude session, or another to have no outgoing network.
+provide a `jardiniere.toml` in your repo to override jardinière's defaults. for example, you might wish a repo to drop you directly into a Claude session, or to block all network egress, or to provision Opencode for you.
 
 ```toml
 # command run inside `nix develop`. default "bash"
@@ -83,6 +83,9 @@ startup = "claude"
 # disable outgoing network
 [network]
 mode = "none"
+
+# inject an Opencode agent
+agent = "opencode"
 ```
 
 ## how it works
@@ -90,7 +93,7 @@ mode = "none"
 ```
 jard  →  read ./jardiniere.toml
       →  detect whatever OCI runtime is present (docker / podman / orbstack / etc.)
-      →  run a Nix-enabled Linux container with:
+      →  run a NixOS container with:
            • repo bind-mounted at /work    (git commit to the host fs)
            • persistent /nix store volume  (fast cold starts)
            • your git identity injected    (author commits as you)
@@ -98,13 +101,13 @@ jard  →  read ./jardiniere.toml
       →  exec `nix develop /work --command <startup>`
 ```
 
-### bring your own agent
+### agents
 
-jardinière is completely agnostic to which model or harness you use. configure your tool of choice in the target repo's own Nix flake.
+jardinière is totally agnostic to which agent you use. configure your tool of choice in the target repo's own Nix flake and point `startup` at it. if you'd rather not, `jard` can drop Opencode, Claude Code, or Codex into the sandbox for you via the `agent` config param. (note that Claude Code has an unfree license! if you pick it, jardinière wll set `NIXPKGS_ALLOW_UNFREE=1` in your sandbox!)
 
 ### sandboxing 
 
-jardinière uses Linux containers to sandbox your agent. use any Docker or Podman compatible runtime of your choice. it will autodetect and use whichever you have present.
+jardinière uses a Linux container to sandbox your agent. use any Docker or Podman compatible runtime of your choice. it will autodetect and use whichever you have present.
 
 on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you're using Docker, OrbStack, or another runtime that's compatible. (podman is not.)
 

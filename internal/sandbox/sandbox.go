@@ -177,7 +177,13 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 	// extra host mounts from config, already resolved & validated by the caller
 	args = append(args, mounts...)
 
-	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup))
+	// claude-code is unfree in nixpkgs. so, set NIXPKGS_ALLOW_UNFREE to allow it.
+	// the var is visible sandbox-wide but only affects impure evals.
+	if config.AgentUnfree(c.Agent) {
+		args = append(args, "-e", "NIXPKGS_ALLOW_UNFREE=1")
+	}
+
+	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup, c.Agent))
 	return args
 }
 
@@ -198,8 +204,18 @@ func networkArgs(mode string, proxy *proxySidecar) []string {
 }
 
 // entrypoint enters the repo's own dev shell and runs the startup command.
-// preflightFlake guarantees a tracked flake.nix before we get here, so we can
-// always nix develop — no need to handle a missing flake.
-func entrypoint(startup string) string {
-	return fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
+// when an agent is configured, it is layered onto the dev shell with `nix
+// shell` so its binary is on PATH.
+func entrypoint(startup, agent string) string {
+	pkg := config.AgentPackage(agent)
+	if pkg == "" {
+		return fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
+	}
+	// unfree agents need --impure so the shell honors NIXPKGS_ALLOW_UNFREE
+	impure := ""
+	if config.AgentUnfree(agent) {
+		impure = "--impure "
+	}
+	return fmt.Sprintf("exec nix develop %s --command nix shell %snixpkgs#%s --command %s",
+		workdir, impure, pkg, startup)
 }
