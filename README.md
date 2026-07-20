@@ -4,17 +4,59 @@ a Nix-based sandbox for running coding agents in a repo. point `jard` at a Nix-b
 
 ## install
 
-on macOS, install with Homebrew:
+**Nix (as system package):**
+
+```sh
+# run without installing
+nix run github:rhizomatous/jardiniere
+
+# or install into your profile
+nix profile install github:rhizomatous/jardiniere
+```
+
+**Nix (in your project flake):**
+
+add jardinière as an input, then apply its overlay to get `pkgs.jard`:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    jardiniere.url = "github:rhizomatous/jardiniere";
+    # optional: dedupe nixpkgs so you don't pull a second copy
+    jardiniere.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { nixpkgs, jardiniere, ... }:
+    let
+      system = "aarch64-darwin";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ jardiniere.overlays.default ];
+      };
+    in {
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [ pkgs.jard ];
+      };
+    };
+}
+```
+
+**Homebrew (macOS):**
 
 ```sh
 brew install rhizomatous/tap/jard
 ```
 
-or grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest), or install with Go:
+**Go:**
 
 ```sh
 go install github.com/rhizomatous/jardiniere/cmd/jard@latest
 ```
+
+**Binary:**
+
+grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest).
 
 ## usage
 

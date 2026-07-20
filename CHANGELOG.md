@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Nix flake package output, so `jard` can be installed with `nix profile install github:rhizomatous/jardiniere` or run with `nix run github:rhizomatous/jardiniere`.
+- Nix flake `overlays.default`, so downstream flakes can add jardinière as an input and get `pkgs.jard`.
+
 ## [0.1.4] - 2026-07-19
 
 ### Added
