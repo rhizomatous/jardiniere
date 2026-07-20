@@ -2,6 +2,10 @@
 
 a Nix-based sandbox for running coding agents in a repo. point `jard` at a Nix-based repo to spin up Linux container, install the repo's Nix config, and drop into a working dev env with the agent of your choice.
 
+## prerequisites
+
+you'll need an OCI-compatible container runtime on your system. any that provide a Docker-compatible interface should be fine, as is podman.
+
 ## install
 
 **Nix (as system package):**
@@ -56,7 +60,7 @@ go install github.com/rhizomatous/jardiniere/cmd/jard@latest
 
 **Binary:**
 
-grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest).
+grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest). this _miiiiight_ not work on macOS, because codesigning is not set up yet.
 
 ## usage
 
@@ -70,13 +74,15 @@ jard --dir ../some-repo
 
 ### configuring
 
-provide a `jardiniere.toml` in your repo to override jardinière's defaults. for example, you might wish one repo to drop you directly into a Claude session, or another to be built off a different base image. 
+provide a `jardiniere.toml` in your repo to override jardinière's defaults. for example, you might wish one repo to drop you directly into a Claude session, or another to have no outgoing network.
 
 ```toml
 # command run inside `nix develop`. default "bash"
 startup = "claude"
-# image used for container. default "nixos/nix:latest"
-image = "nixos/nix:latest"
+
+# disable outgoing network
+[network]
+mode = "none"
 ```
 
 ## how it works
@@ -113,6 +119,8 @@ set `[network].mode` in `jardiniere.toml` to control what the agent can reach:
 in `allowlist` mode, the sandbox joins an isolated network with no direct route out. its only egress is a proxy sidecar that permits `CONNECT` to allowed hosts only. unfortunately, this only supports HTTP(S)! so use HTTPS git remotes in this mode.
 
 ## development
+
+a Nix dev shell is provided. use `nix develop` or `use flake` to enter. consult [the Makefile](./Makefile) for relevant dev commands. some other commands you might wish to know:
 
 ```sh
 # preview the exact terminal command that will be run

@@ -35,4 +35,4 @@ Unit tests are **pure**, with no container runtime required. They cover arg-buil
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/). Always include the scope:  `feat(sandbox): ...`, `chore(docs): ...`. View the git log for examples of scopes used in the project.
 - Keep `CHANGELOG.md` up to date. Use [Keep a Changelog](https://keepachangelog.com/) guidelines for waht goes in it.
-- Use [Semantic Versioning](https://semver.org)
+- Use [Semantic Versioning](https://semver.org). Keep the version in `flake.nix` in sync with the version used in the release tags.
