@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-20
+
 ### Added
 
 - `agent` config field: optionally drop Opencode, Claude Code, or Codex into the sandbox's Nix env.
@@ -43,7 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `jardiniere.toml` config file, supporting a custom `startup` command, `image` override, and network policy.
 - Kong-based CLI with `--version` and `--dry-run` flags.
 
-[Unreleased]: https://github.com/rhizomatous/jardiniere/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/rhizomatous/jardiniere/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rhizomatous/jardiniere/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/rhizomatous/jardiniere/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/rhizomatous/jardiniere/compare/v0.1.1...v0.1.3
 [0.1.1]: https://github.com/rhizomatous/jardiniere/compare/v0.1.0...v0.1.1
