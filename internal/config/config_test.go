@@ -129,6 +129,31 @@ func TestLoadInvalidAgentErrors(t *testing.T) {
 	}
 }
 
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		ok   bool
+	}{
+		{"defaults", Defaults(), true},
+		{"allowlist with hosts", Config{Agent: AgentNone, Network: NetworkConfig{Mode: NetworkAllowlist, Allow: []string{"github.com"}}}, true},
+		{"bad network", Config{Agent: AgentNone, Network: NetworkConfig{Mode: "sometimes"}}, false},
+		{"allowlist no hosts", Config{Agent: AgentNone, Network: NetworkConfig{Mode: NetworkAllowlist}}, false},
+		{"bad agent", Config{Agent: "cursor", Network: NetworkConfig{Mode: NetworkFull}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.ok && err != nil {
+				t.Errorf("expected valid, got %v", err)
+			}
+			if !tt.ok && err == nil {
+				t.Error("expected error, got nil")
+			}
+		})
+	}
+}
+
 func TestAgentUnfree(t *testing.T) {
 	if !AgentUnfree(AgentClaudeCode) {
 		t.Error("claude-code should be unfree")

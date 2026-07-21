@@ -27,9 +27,37 @@ var version = "dev"
 // cli is jard's command-line interface.
 type cli struct {
 	Dir     string           `default:"." help:"target repository directory to sandbox"`
+	Startup string           `help:"command to run inside the dev shell (default \"bash\")"`
 	Image   string           `help:"override the base runner image"`
+	Agent   *string          `help:"coding agent to inject" enum:"none,opencode,claude-code,codex"`
+	Mount   []string         `help:"extra host mount, source[:target][:ro|rw] (repeatable; replaces config mounts)"`
+	Network *string          `help:"network egress policy" enum:"full,none,allowlist"`
+	Allow   []string         `help:"host allowed in allowlist mode (repeatable; replaces config allow list)"`
 	DryRun  bool             `help:"print the container command instead of running it"`
 	Version kong.VersionFlag `help:"print version and exit"`
+}
+
+// override layers the CLI flags onto cfg.
+func override(cfg config.Config, cli cli) config.Config {
+	if cli.Startup != "" {
+		cfg.Startup = cli.Startup
+	}
+	if cli.Image != "" {
+		cfg.Image = cli.Image
+	}
+	if cli.Agent != nil {
+		cfg.Agent = *cli.Agent
+	}
+	if len(cli.Mount) > 0 {
+		cfg.Mounts = cli.Mount
+	}
+	if cli.Network != nil {
+		cfg.Network.Mode = *cli.Network
+	}
+	if len(cli.Allow) > 0 {
+		cfg.Network.Allow = cli.Allow
+	}
+	return cfg
 }
 
 func main() {
@@ -65,8 +93,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if cli.Image != "" {
-		cfg.Image = cli.Image
+	cfg = override(cfg, cli)
+	if err := cfg.Validate(); err != nil {
+		return err
 	}
 
 	if err := preflightFlake(repoDir); err != nil {

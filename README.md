@@ -74,7 +74,7 @@ jard --dir ../some-repo
 
 ### configuring
 
-provide a `jardiniere.toml` in your repo to override jardinière's defaults. for example, you might wish a repo to drop you directly into a Claude session, or to block all network egress, or to provision Opencode for you.
+provide a `jardiniere.toml` in your repo to set defaults for your jardinière sessinos. for example, you might wish a repo to drop you directly into a Claude session, or to block all network egress, or to provision Opencode for you.
 
 ```toml
 # command run inside `nix develop`. default "bash"
@@ -87,6 +87,22 @@ mode = "none"
 # inject an Opencode agent
 agent = "opencode"
 ```
+
+### flags
+
+CLI flag override what the repo's config sets.
+
+| flag | config key | default | description |
+| --- | --- | --- | --- |
+| `--dir` | — | `.` | repo directory to sandbox |
+| `--startup` | `startup` | `bash` | command to run inside the dev shell |
+| `--image` | `image` | `nixos/nix:latest` | base runner image |
+| `--agent` | `agent` | `none` | coding agent to inject: `none`, `opencode`, `claude-code`, or `codex` |
+| `--mount` | `mounts` | — | extra host mount: `source[:target][:ro\|rw]` (repeatable) |
+| `--network` | `network.mode` | `full` | network egress policy: `full`, `none`, or `allowlist` |
+| `--allow` | `network.allow` | — | host reachable in `allowlist` mode (repeatable) |
+| `--dry-run` | — | — | print the container command instead of running it |
+| `--version` | — | — | print version and exit |
 
 ## how it works
 
@@ -123,9 +139,4 @@ in `allowlist` mode, the sandbox joins an isolated network with no direct route 
 
 ## development
 
-a Nix dev shell is provided. use `nix develop` or `use flake` to enter. consult [the Makefile](./Makefile) for relevant dev commands. some other commands you might wish to know:
-
-```sh
-# preview the exact terminal command that will be run
-jard --dry-run
-```
+a Nix dev shell is provided. use `nix develop` or `use flake` to enter. consult [the Makefile](./Makefile) for relevant dev commands.

@@ -14,6 +14,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,16 +111,23 @@ func Load(dir string) (Config, error) {
 		return Config{}, fmt.Errorf("%s: unknown key %q", path, undecoded[0].String())
 	}
 
-	if err := validateNetwork(cfg.Network.Mode); err != nil {
-		return Config{}, fmt.Errorf("%s: %w", path, err)
-	}
-	if cfg.Network.Mode == NetworkAllowlist && len(cfg.Network.Allow) == 0 {
-		return Config{}, fmt.Errorf(`%s: network = "allowlist" requires a non-empty `+"`allow`"+` list of hosts`, path)
-	}
-	if err := validateAgent(cfg.Agent); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return cfg, nil
+}
+
+// Validate checks that the enum-like fields hold recognized values and that an
+// allowlist policy actually names hosts. it runs after file decoding and again
+// after any CLI overrides.
+func (c Config) Validate() error {
+	if err := validateNetwork(c.Network.Mode); err != nil {
+		return err
+	}
+	if c.Network.Mode == NetworkAllowlist && len(c.Network.Allow) == 0 {
+		return errors.New(`network "allowlist" requires a non-empty allow list of hosts`)
+	}
+	return validateAgent(c.Agent)
 }
 
 // validateNetwork rejects unknown network values up front.
