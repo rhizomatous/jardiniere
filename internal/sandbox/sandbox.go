@@ -183,6 +183,13 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 		args = append(args, "-e", "NIXPKGS_ALLOW_UNFREE=1")
 	}
 
+	// the container runs as root. Claude Code refuses
+	// --dangerously-skip-permissions under root unless the environment declares
+	// itself a sandbox.
+	if c.Agent == config.AgentClaudeCode {
+		args = append(args, "-e", "IS_SANDBOX=1")
+	}
+
 	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup, c.Agent))
 	return args
 }

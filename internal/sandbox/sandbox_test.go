@@ -140,6 +140,32 @@ func TestBuildArgsAgentUnfree(t *testing.T) {
 	}
 }
 
+func TestBuildArgsIsSandbox(t *testing.T) {
+	base := Options{Runtime: container.Runtime{Name: "docker"}, Config: config.Defaults(), RepoDir: "/repo"}
+	sets := func(o Options) bool {
+		return slices.Contains(buildArgs(o, "linux", nil, nil), "IS_SANDBOX=1")
+	}
+
+	// no agent: claude-code's root escape hatch must not be set.
+	if sets(base) {
+		t.Error("agent=none must not set IS_SANDBOX")
+	}
+
+	// a non-claude agent: not set.
+	other := base
+	other.Config.Agent = config.AgentCodex
+	if sets(other) {
+		t.Error("agent=codex must not set IS_SANDBOX")
+	}
+
+	// claude-code: set.
+	claude := base
+	claude.Config.Agent = config.AgentClaudeCode
+	if !sets(claude) {
+		t.Error("agent=claude-code should set IS_SANDBOX=1")
+	}
+}
+
 // TestBuildArgsAgentForwarding checks that the correct forwarding flags are
 // passed to the container invocation, per platform.
 func TestBuildArgsAgentForwarding(t *testing.T) {

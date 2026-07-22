@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - CLI flags for every `jardiniere.toml` key, so any run can be tuned without a config file.
 
+### Fixed
+
+- Set `IS_SANDBOX=1` when injecting Claude Code, so `--dangerously-skip-permissions` works inside the root-owned container.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added
