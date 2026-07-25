@@ -45,14 +45,20 @@ func (g GitIdentity) Label() string {
 type Options struct {
 	Runtime  container.Runtime
 	Config   config.Config
-	RepoDir  string // absolute path to the repo, bind-mounted at /work
+	Name     string // sandbox name (always set); drives the container hostname, volume, and branch
+	RepoDir  string // live repo bind-mounted at /work in attach mode
+	Source   string // host repo root, mounted read-only at /src in clone mode; empty means attach mode
 	Identity GitIdentity
 	SSHSock  string // host SSH_AUTH_SOCK, forwarded when non-empty
 	DryRun   bool   // print the command instead of running it
 }
 
-// workdir is where the repo is mounted inside the container.
-const workdir = "/work"
+// workdir is where the agent works inside the container. sourcedir is where the
+// read-only host repo is mounted in clone mode, to clone from.
+const (
+	workdir   = "/work"
+	sourcedir = "/src"
+)
 
 const (
 	// containerSSHSock is where the forwarded agent socket lands inside the sandbox.
@@ -146,13 +152,23 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 	c := opts.Config
 	args = []string{
 		"run", "--rm", "-it",
-		"--hostname", "jardiniere",
-		"-v", opts.RepoDir + ":" + workdir,
+		"--hostname", opts.Name,
+	}
+	// clone mode: mount the host repo read-only at /src and a persistent
+	// per-sandbox volume at /work. attach mode: bind-mount the live repo at /work.
+	if opts.Source != "" {
+		args = append(args,
+			"-v", opts.Source+":"+sourcedir+":ro",
+			"-v", volumeName(opts.Name)+":"+workdir)
+	} else {
+		args = append(args, "-v", opts.RepoDir+":"+workdir)
+	}
+	args = append(args,
 		"-w", workdir,
-		"-v", nixStoreVolume + ":/nix",
+		"-v", nixStoreVolume+":/nix",
 		// enable flakes & the nix command in images (like nixos/nix) that ship with them off.
 		"-e", "NIX_CONFIG=experimental-features = nix-command flakes",
-	}
+	)
 
 	// apply network config
 	args = append(args, networkArgs(c.Network.Mode, proxy)...)
@@ -190,7 +206,12 @@ func buildArgs(opts Options, goos string, proxy *proxySidecar, mounts []string) 
 		args = append(args, "-e", "IS_SANDBOX=1")
 	}
 
-	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup, c.Agent))
+	// in clone mode the entrypoint clones into /work on first run, on jard/<name>.
+	cloneBranch := ""
+	if opts.Source != "" {
+		cloneBranch = startBranch(opts.Name)
+	}
+	args = append(args, c.Image, "bash", "-lc", entrypoint(c.Startup, c.Agent, cloneBranch))
 	return args
 }
 
@@ -211,18 +232,28 @@ func networkArgs(mode string, proxy *proxySidecar) []string {
 }
 
 // entrypoint enters the repo's own dev shell and runs the startup command.
-// when an agent is configured, it is layered onto the dev shell with `nix
-// shell` so its binary is on PATH.
-func entrypoint(startup, agent string) string {
-	pkg := config.AgentPackage(agent)
-	if pkg == "" {
-		return fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
+// when an agent is configured, it is layered onto the dev shell with `nix shell` so
+// its binary is on PATH. when in clone mode, it clones the host repo into the /work
+// volume on the sandbox's first run.
+func entrypoint(startup, agent, cloneBranch string) string {
+	// enter the dev shell, layering the agent's nix package on top when set.
+	dev := fmt.Sprintf("exec nix develop %s --command %s", workdir, startup)
+	if pkg := config.AgentPackage(agent); pkg != "" {
+		// unfree agents need --impure so the shell honors NIXPKGS_ALLOW_UNFREE
+		impure := ""
+		if config.AgentUnfree(agent) {
+			impure = "--impure "
+		}
+		dev = fmt.Sprintf("exec nix develop %s --command nix shell %snixpkgs#%s --command %s",
+			workdir, impure, pkg, startup)
 	}
-	// unfree agents need --impure so the shell honors NIXPKGS_ALLOW_UNFREE
-	impure := ""
-	if config.AgentUnfree(agent) {
-		impure = "--impure "
+
+	if cloneBranch == "" {
+		return dev
 	}
-	return fmt.Sprintf("exec nix develop %s --command nix shell %snixpkgs#%s --command %s",
-		workdir, impure, pkg, startup)
+	clone := fmt.Sprintf(
+		"if [ ! -e %s/.git ]; then echo 'jardinière: cloning repo into sandbox…' && "+
+			"git clone %s %s && git -C %s checkout -b %s; fi; ",
+		workdir, sourcedir, workdir, workdir, cloneBranch)
+	return clone + dev
 }

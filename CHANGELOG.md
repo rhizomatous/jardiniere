@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Each `jard` run now works in its own clone, so multiple sandboxes can work one repo in parallel without sharing a working tree, index, or `.git`.
+  - `--attach` flag to edit the live repo in place, preserving the previous bind-mount behavior for single-sandbox use when desired.
+  - Every session is named, so parallel sessions have distinguishable shell prompts.
 - CLI flags for every `jardiniere.toml` key, so any run can be tuned without a config file.
 
 ### Fixed

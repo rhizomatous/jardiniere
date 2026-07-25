@@ -88,9 +88,50 @@ func TestBuildArgsAllowlist(t *testing.T) {
 	}
 }
 
+func TestBuildArgsCloneMode(t *testing.T) {
+	opts := Options{
+		Runtime: container.Runtime{Name: "docker"},
+		Config:  config.Defaults(),
+		Name:    "feature-x",
+		Source:  "/host/repo",
+	}
+	joined := strings.Join(buildArgs(opts, "linux", nil, nil), " ")
+
+	if !strings.Contains(joined, "--hostname feature-x") {
+		t.Errorf("clone mode should set hostname from the name, got %v", joined)
+	}
+	if !strings.Contains(joined, "-v /host/repo:"+sourcedir+":ro") {
+		t.Errorf("clone mode should mount the host repo read-only at %s, got %v", sourcedir, joined)
+	}
+	if !strings.Contains(joined, "-v jardiniere-sb-feature-x:"+workdir) {
+		t.Errorf("clone mode should mount the derived sandbox volume at %s, got %v", workdir, joined)
+	}
+	if !strings.Contains(joined, "git clone "+sourcedir+" "+workdir) {
+		t.Errorf("clone mode entrypoint should clone %s into %s, got %v", sourcedir, workdir, joined)
+	}
+	if !strings.Contains(joined, "checkout -b jard/feature-x") {
+		t.Errorf("clone mode should start on the derived branch, got %v", joined)
+	}
+}
+
+func TestBuildArgsAttachMode(t *testing.T) {
+	opts := Options{
+		Runtime: container.Runtime{Name: "docker"},
+		Config:  config.Defaults(),
+		RepoDir: "/live/repo",
+	}
+	joined := strings.Join(buildArgs(opts, "linux", nil, nil), " ")
+	if !strings.Contains(joined, "-v /live/repo:"+workdir) {
+		t.Errorf("attach mode should bind-mount the live repo at %s, got %v", workdir, joined)
+	}
+	if strings.Contains(joined, sourcedir) || strings.Contains(joined, "git clone") {
+		t.Errorf("attach mode must not use /src or clone, got %v", joined)
+	}
+}
+
 func TestEntrypoint(t *testing.T) {
 	// no agent: a plain nix develop, no nix shell layer.
-	plain := entrypoint("bash", config.AgentNone)
+	plain := entrypoint("bash", config.AgentNone, "")
 	if strings.Contains(plain, "nix shell") {
 		t.Errorf("agent=none must not layer nix shell, got %q", plain)
 	}
@@ -99,7 +140,7 @@ func TestEntrypoint(t *testing.T) {
 	}
 
 	// a free agent: a pure nix shell, no --impure.
-	free := entrypoint("bash", config.AgentOpencode)
+	free := entrypoint("bash", config.AgentOpencode, "")
 	if !strings.Contains(free, "nix shell nixpkgs#opencode --command bash") {
 		t.Errorf("free agent should layer a pure nix shell, got %q", free)
 	}
@@ -108,9 +149,31 @@ func TestEntrypoint(t *testing.T) {
 	}
 
 	// an unfree agent: --impure so it can honor NIXPKGS_ALLOW_UNFREE.
-	unfree := entrypoint("bash", config.AgentClaudeCode)
+	unfree := entrypoint("bash", config.AgentClaudeCode, "")
 	if !strings.Contains(unfree, "nix shell --impure nixpkgs#claude-code --command bash") {
 		t.Errorf("unfree agent should layer an impure nix shell, got %q", unfree)
+	}
+}
+
+func TestEntrypointClone(t *testing.T) {
+	// attach mode: no clone.
+	attach := entrypoint("bash", config.AgentNone, "")
+	if strings.Contains(attach, "git clone") {
+		t.Errorf("attach mode must not clone, got %q", attach)
+	}
+
+	// clone mode: clone from /src into /work, on the starting branch,
+	// then the usual dev shell.
+	clone := entrypoint("bash", config.AgentNone, "jard/feature-x")
+	for _, want := range []string{
+		"[ ! -e " + workdir + "/.git ]",
+		"git clone " + sourcedir + " " + workdir,
+		"checkout -b jard/feature-x",
+		"nix develop " + workdir + " --command bash",
+	} {
+		if !strings.Contains(clone, want) {
+			t.Errorf("clone entrypoint missing %q, got %q", want, clone)
+		}
 	}
 }
 
