@@ -20,20 +20,6 @@ func TestRenderSummaryHappyPath(t *testing.T) {
 	}
 }
 
-func TestRenderSummarySandboxRow(t *testing.T) {
-	// clone mode: name shown as an isolated clone.
-	clone := RenderSummary(Summary{Runtime: "docker", Sandbox: "verdant-fern"})
-	if !strings.Contains(clone, "verdant-fern") || !strings.Contains(clone, "isolated clone") {
-		t.Errorf("clone summary should name the isolated clone, got:\n%s", clone)
-	}
-
-	// attach: name shown alongside the live-repo warning.
-	attach := RenderSummary(Summary{Runtime: "docker", Sandbox: "hotfix", Attached: true})
-	if !strings.Contains(attach, "hotfix") || !strings.Contains(attach, "live repo") {
-		t.Errorf("attach summary should show name and live-repo warning, got:\n%s", attach)
-	}
-}
-
 func TestRenderSummaryFlagsMissingBits(t *testing.T) {
 	out := RenderSummary(Summary{
 		Runtime:      "podman",

@@ -36,9 +36,7 @@ type Summary struct {
 	MountCount   int    // number of extra host mounts (row hidden when 0)
 	SSHForwarded bool
 	SSHDetail    string // shown when SSHForwarded is false
-	Identity     string // e.g. "viv shaw <hey@vivsha.ws>". "" when unset
-	Sandbox      string // session name (always set; drives the hostname)
-	Attached     bool   // true when editing the live repo in place
+	Identity     string // "viv shaw <hey@vivsha.ws>", or "" when unset
 }
 
 // RenderSummary returns the multi-line block printed to stderr before entering
@@ -73,18 +71,8 @@ func RenderSummary(s Summary) string {
 		network = valueStyle.Render(s.Network)
 	}
 
-	// every session is named. the row shows the name, then either "isolated
-	// clone" or a warning that attach edits land in the live repo and can collide.
-	var sandbox string
-	if s.Attached {
-		sandbox = valueStyle.Render(s.Sandbox) + warnStyle.Render(" — attached to live repo, may collide")
-	} else {
-		sandbox = valueStyle.Render(s.Sandbox) + arrowStyle.Render(" — isolated clone")
-	}
-
 	lines := []string{
 		titleStyle.Render("🪴 jardinière"),
-		"  " + labelStyle.Render("sandbox") + sandbox,
 		row("runtime", s.Runtime),
 		row("image", s.Image),
 		row("startup", s.Startup),

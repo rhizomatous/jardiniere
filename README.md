@@ -95,8 +95,6 @@ CLI flag override what the repo's config sets.
 | flag | config key | default | description |
 | --- | --- | --- | --- |
 | `--dir` | — | `.` | repo directory to sandbox |
-| `--name` | — | auto | name this sandbox |
-| `--attach` | — | — | edit the live repo in place instead of an isolated clone (may be combined with `--name`) |
 | `--startup` | `startup` | `bash` | command to run inside the dev shell |
 | `--image` | `image` | `nixos/nix:latest` | base runner image |
 | `--agent` | `agent` | `none` | coding agent to inject: `none`, `opencode`, `claude-code`, or `codex` |
@@ -112,9 +110,9 @@ CLI flag override what the repo's config sets.
 jard  →  read ./jardiniere.toml
       →  detect whatever OCI runtime is present (docker / podman / orbstack / etc.)
       →  run a NixOS container with:
-           • container clones /src into /work on first run (or --attach the live repo)
+           • repo bind-mounted at /work    (git commit to the host fs)
            • persistent /nix store volume  (fast cold starts)
-           • your git identity injected    (agent commits as you)
+           • your git identity injected    (author commits as you)
            • ssh-agent forwarded           (if Linux, or macOS on OrbStack/Docker)
       →  exec `nix develop /work --command <startup>`
 ```
@@ -128,10 +126,6 @@ jardinière is totally agnostic to which agent you use. configure your tool of c
 jardinière uses a Linux container to sandbox your agent. use any Docker or Podman compatible runtime of your choice. it will autodetect and use whichever you have present.
 
 on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you're using Docker, OrbStack, or another runtime that's compatible. (podman is not.)
-
-by default, each `jard` run works in its own isolated clone of the repo, living inside the container. this lets you run several sandboxes against the same repo at once without them clobbering each other's files, index, or git state. the clone lives in a persistant Docker volume, so it can survive container teardown. you can reattach by rerunning 
-
-(want to edit your live working copy directly, commits landing straight on the host fs? use `jard --attach`.)
 
 ### network policy
 

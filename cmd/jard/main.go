@@ -27,8 +27,6 @@ var version = "dev"
 // cli is jard's command-line interface.
 type cli struct {
 	Dir     string           `default:"." help:"target repository directory to sandbox"`
-	Name    string           `help:"name this sandbox. auto-generated when omitted"`
-	Attach  bool             `help:"edit the live repo in place instead of an isolated clone "`
 	Startup string           `help:"command to run inside the dev shell (default \"bash\")"`
 	Image   string           `help:"override the base runner image"`
 	Agent   *string          `help:"coding agent to inject" enum:"none,opencode,claude-code,codex"`
@@ -104,18 +102,6 @@ func run() error {
 		return err
 	}
 
-	// name the session, then resolve what gets mounted at /work: a per-sandbox
-	// clone in a persistent volume by default (src set), or the live repo with
-	// --attach (src empty).
-	name, err := sandbox.Name(cli.Name)
-	if err != nil {
-		return err
-	}
-	src, err := source(repoDir, cli)
-	if err != nil {
-		return err
-	}
-
 	// Ctrl-C should tear down the sandbox cleanly rather than orphan it.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -135,9 +121,7 @@ func run() error {
 	opts := sandbox.Options{
 		Runtime:  rt,
 		Config:   cfg,
-		Name:     name,
 		RepoDir:  repoDir,
-		Source:   src,
 		Identity: identity,
 		SSHSock:  sshSock,
 		DryRun:   cli.DryRun,
@@ -145,7 +129,7 @@ func run() error {
 
 	if !cli.DryRun {
 		forwarded, detail := sandbox.SSHAgentStatus(rt.Name, sshSock)
-		summary := ui.Summary{
+		fmt.Fprintln(os.Stderr, ui.RenderSummary(ui.Summary{
 			Runtime:      rt.Name,
 			Image:        cfg.Image,
 			Startup:      cfg.Startup,
@@ -155,49 +139,9 @@ func run() error {
 			SSHForwarded: forwarded,
 			SSHDetail:    detail,
 			Identity:     identity.Label(),
-			Sandbox:      name,
-			Attached:     src == "",
-		}
-		fmt.Fprintln(os.Stderr, ui.RenderSummary(summary))
+		}))
 	}
 	return sandbox.Run(ctx, opts)
-}
-
-// source returns the value for Options.Source: in clone mode, the git repo to
-// clone from, for --attach or non-git targets, ""
-func source(repoDir string, cli cli) (string, error) {
-	if cli.Attach || !insideGitWorkTree(repoDir) {
-		return "", nil
-	}
-
-	// clone from the repo root, so pointing --dir at a subdirectory still works.
-	src, err := gitTopLevel(repoDir)
-	if err != nil {
-		return "", err
-	}
-
-	// a clone captures only committed state. warn so nobody loses track of
-	// uncommitted work sitting in their live checkout.
-	if !cli.DryRun && hostRepoDirty(repoDir) {
-		ui.Log.Warn("host working tree has uncommitted changes")
-	}
-
-	return src, nil
-}
-
-// gitTopLevel returns the absolute path of the working tree's root.
-func gitTopLevel(dir string) (string, error) {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return "", fmt.Errorf("resolving repo root: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-// hostRepoDirty reports whether dir has uncommitted changes.
-func hostRepoDirty(dir string) bool {
-	out, err := exec.Command("git", "-C", dir, "status", "--porcelain").Output()
-	return err == nil && len(strings.TrimSpace(string(out))) > 0
 }
 
 // preflightFlake checks that there's a valid, tracked flake.nix.
