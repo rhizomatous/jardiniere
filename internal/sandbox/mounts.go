@@ -13,11 +13,12 @@ import (
 const containerHome = "/root"
 
 // resolveMounts turns config mount specs into docker run -v arguments,
-// validating each and confirming the host source exists.
-func resolveMounts(specs []string, hostHome string) ([]string, error) {
+// validating each and confirming the host source exists. relative sources are
+// resolved against baseDir.
+func resolveMounts(specs []string, hostHome, baseDir string) ([]string, error) {
 	var args []string
 	for _, spec := range specs {
-		src, dst, mode, err := parseMount(spec, hostHome)
+		src, dst, mode, err := parseMount(spec, hostHome, baseDir)
 		if err != nil {
 			return nil, err
 		}
@@ -31,28 +32,22 @@ func resolveMounts(specs []string, hostHome string) ([]string, error) {
 
 // parseMount parses "source[:target][:mode]", where mode is ro|rw.
 // ~ in source expands to the host home; ~ in target to the container home.
-// target defaults to source (so "~/.aws" mounts the host's ~/.aws at the
-// container's ~/.aws).
-func parseMount(spec, hostHome string) (src, dst, mode string, err error) {
-	parts := strings.Split(strings.TrimSpace(spec), ":")
+// target defaults to source.
+func parseMount(spec, hostHome, baseDir string) (src, dst, mode string, err error) {
+	rest := strings.TrimSpace(spec)
 
-	// a trailing ro/rw is the mode; otherwise default to read-only.
+	// peel an optional trailing ro/rw mode off the right. default to read-only.
 	mode = "ro"
-	if n := len(parts); n > 1 {
-		if last := parts[n-1]; last == "ro" || last == "rw" {
-			mode = last
-			parts = parts[:n-1]
+	if i := strings.LastIndex(rest, ":"); i >= 0 {
+		if tail := rest[i+1:]; tail == "ro" || tail == "rw" {
+			mode, rest = tail, rest[:i]
 		}
 	}
 
-	var rawSrc, rawDst string
-	switch len(parts) {
-	case 1:
-		rawSrc, rawDst = parts[0], parts[0]
-	case 2:
-		rawSrc, rawDst = parts[0], parts[1]
-	default:
-		return "", "", "", fmt.Errorf("invalid mount %q: expected source[:target][:ro|rw]", spec)
+	// the remainder is source[:target].
+	rawSrc, rawDst, hasTarget := strings.Cut(rest, ":")
+	if !hasTarget {
+		rawDst = rawSrc
 	}
 	if strings.TrimSpace(rawSrc) == "" || strings.TrimSpace(rawDst) == "" {
 		return "", "", "", fmt.Errorf("invalid mount %q: empty source or target", spec)
@@ -60,8 +55,12 @@ func parseMount(spec, hostHome string) (src, dst, mode string, err error) {
 
 	src = expandHome(rawSrc, hostHome)
 	dst = expandHome(rawDst, containerHome)
+	// a relative source is taken relative to the target repo dir.
 	if !filepath.IsAbs(src) {
-		return "", "", "", fmt.Errorf("invalid mount %q: source must be an absolute or ~ path", spec)
+		src = filepath.Join(baseDir, src)
+	}
+	if !filepath.IsAbs(src) {
+		return "", "", "", fmt.Errorf("invalid mount %q: source must be an absolute, ~, or relative path", spec)
 	}
 	if !path.IsAbs(dst) {
 		return "", "", "", fmt.Errorf("invalid mount %q: target must be an absolute or ~ path", spec)

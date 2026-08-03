@@ -91,7 +91,7 @@ func sshAgentHostSocket(goos, rtName, hostSock string) (path string, ok bool, re
 func Run(ctx context.Context, opts Options) error {
 	// resolve extra host mounts up front
 	home, _ := os.UserHomeDir()
-	mounts, err := resolveMounts(opts.Config.Mounts, home)
+	mounts, err := resolveMounts(opts.Config.Mounts, home, opts.RepoDir)
 	if err != nil {
 		return err
 	}

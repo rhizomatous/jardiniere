@@ -1,6 +1,6 @@
 # 🪴 jardinière
 
-a Nix-based sandbox for running coding agents in a repo. point `jard` at a Nix-based repo to spin up Linux container, install the repo's Nix config, and drop into a working dev env with the agent of your choice.
+a Nix-based sandbox for running coding agents in a repo. point `jard` at a repo with a Nix flake to spin up a Linux container, install the repo's Nix config, and drop into a working dev env with the agent of your choice.
 
 ## prerequisites
 
@@ -74,7 +74,7 @@ jard --dir ../some-repo
 
 ### configuring
 
-provide a `jardiniere.toml` in your repo to set defaults for your jardinière sessinos. for example, you might wish a repo to drop you directly into a Claude session, or to block all network egress, or to provision Opencode for you.
+provide a `jardiniere.toml` in your repo to set defaults for your jardinière sessinos. for example, you might wish a repo to drop you directly into a Claude session, block all network egress, or provision Opencode for you.
 
 ```toml
 # command run inside `nix develop`. default "bash"
@@ -104,16 +104,53 @@ CLI flag override what the repo's config sets.
 | `--dry-run` | — | — | print the container command instead of running it |
 | `--version` | — | — | print version and exit |
 
+### working with multiple repos
+
+you might wish to have a session that touches multiple repos, for example working on your app's frontend and backend together. use the `mounts` parameter for this. with each keeping its own Nix dev shell.
+
+#### from a host repo
+
+if you only want to reference other repos with read access, add the `mounts` parameter to your existing `jardiniere.toml`. (N.B., this will _not_ auto-install the Nix shell for that repo!)
+
+```toml
+# ~/work/frontend/
+mounts = [
+  "../backend:/work/backend:r"
+]
+```
+
+#### as a custom workspace
+
+for more complex uses, such as if you need a full development environment for multiple services, set up a workspace. this is a directory with its own `flake.nix` and a `jardiniere.toml` that mounts the repos you want:
+
+```
+# ~/work/fullstack/
+├── flake.nix
+└── jardiniere.toml
+```
+
+```toml
+# ~/work/fullstack/jardiniere.toml
+startup = "claude"
+
+mounts = [
+  "../frontend:/work/frontend:rw",
+  "../backend:/work/backend:rw",
+]
+```
+
+if you want a full, batteries-included workspace, you can populate the workspace `flake.nix` with all the tools you need. (perhaps by composing together the `flake.nix`es from each mounted repo.) this might be preferable if you want a no-fuss dev environment. alternatively, you can use a minimal `flake.nix`, and instruct your agent to work with the `flake.nix` from each repo by prefixing commands with `nix develop`. this might be preferable if your services may use conflicting dependency versions.
+
 ## how it works
 
 ```
 jard  →  read ./jardiniere.toml
       →  detect whatever OCI runtime is present (docker / podman / orbstack / etc.)
       →  run a NixOS container with:
-           • repo bind-mounted at /work    (git commit to the host fs)
-           • persistent /nix store volume  (fast cold starts)
-           • your git identity injected    (author commits as you)
-           • ssh-agent forwarded           (if Linux, or macOS on OrbStack/Docker)
+           • repo bind-mounted at /work
+           • persistent /nix store volume
+           • your git identity injected
+           • ssh-agent forwarded (if Linux, or macOS on OrbStack/Docker)
       →  exec `nix develop /work --command <startup>`
 ```
 
