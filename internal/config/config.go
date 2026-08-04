@@ -44,14 +44,27 @@ const (
 type agentSpec struct {
 	pkg    string // nixpkgs attribute
 	unfree bool   // whether that package carries an unfree license
+	// settings is the agent's user-level settings file, relative to the user's
+	// home.
+	settings string
 }
 
 // agents maps each supported agent to its nixpkgs package. the unfree flags
 // track nixpkgs licensing at time of writing.
 var agents = map[string]agentSpec{
-	AgentOpencode:   {pkg: "opencode"},                  // MIT
-	AgentClaudeCode: {pkg: "claude-code", unfree: true}, // proprietary
-	AgentCodex:      {pkg: "codex"},                     // Apache-2.0
+	AgentOpencode: { // MIT
+		pkg:      "opencode",
+		settings: ".config/opencode/opencode.json",
+	},
+	AgentClaudeCode: { // proprietary
+		pkg:      "claude-code",
+		unfree:   true,
+		settings: ".claude/settings.json",
+	},
+	AgentCodex: { // Apache-2.0
+		pkg:      "codex",
+		settings: ".codex/config.toml",
+	},
 }
 
 // AgentPackage returns the nixpkgs attribute for agent, or "" when the agent is
@@ -63,6 +76,12 @@ func AgentPackage(agent string) string {
 // AgentUnfree reports whether the selected agent's nixpkgs package is unfree.
 func AgentUnfree(agent string) bool {
 	return agents[agent].unfree
+}
+
+// AgentSettings returns the home-relative path of the agent's user settings
+// file, or "" when the agent has none or is unrecognised.
+func AgentSettings(agent string) string {
+	return agents[agent].settings
 }
 
 // Config is the parsed jardiniere.toml.

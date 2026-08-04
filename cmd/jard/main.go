@@ -129,6 +129,10 @@ func run() error {
 
 	if !cli.DryRun {
 		forwarded, detail := sandbox.SSHAgentStatus(rt.Name, sshSock)
+		agent := cfg.Agent
+		if agent == config.AgentNone {
+			agent = ""
+		}
 		fmt.Fprintln(os.Stderr, ui.RenderSummary(ui.Summary{
 			Runtime:      rt.Name,
 			Image:        cfg.Image,
@@ -136,6 +140,8 @@ func run() error {
 			Network:      cfg.Network.Mode,
 			AllowCount:   len(cfg.Network.Allow),
 			MountCount:   len(cfg.Mounts),
+			Agent:        agent,
+			Mounted:      sandbox.SettingsMounted(cfg.Agent),
 			SSHForwarded: forwarded,
 			SSHDetail:    detail,
 			Identity:     identity.Label(),

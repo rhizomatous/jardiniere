@@ -110,6 +110,9 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 
+	// the agent's own user settings ride along with the configured mounts
+	mounts = append(mounts, settingsMount(opts.Config.Agent, home)...)
+
 	args := buildArgs(opts, runtime.GOOS, proxy, mounts)
 
 	if opts.DryRun {
@@ -137,6 +140,13 @@ func SSHAgentStatus(rtName, hostSock string) (forwarded bool, detail string) {
 	default:
 		return false, reason
 	}
+}
+
+// SettingsMounted reports whether the agent's user settings were found on the
+// host and will be mounted into the sandbox.
+func SettingsMounted(agent string) bool {
+	home, _ := os.UserHomeDir()
+	return len(settingsMount(agent, home)) > 0
 }
 
 // buildArgs assembles the container run arguments. goos is injected (rather

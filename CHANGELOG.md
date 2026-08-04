@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - CLI flags for every `jardiniere.toml` key, so any run can be tuned without a config file.
+- Seed the configured agent's user settings from the host. Preferences like editor theme no longer need to be reconfigured each run.
 - Support relative mount sources, resolved against the target `--dir` (e.g. `../backend:/work/backend:rw`).
 
 ### Fixed

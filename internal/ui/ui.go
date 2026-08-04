@@ -34,6 +34,8 @@ type Summary struct {
 	Network      string // "none" | "full" | "allowlist"
 	AllowCount   int    // number of allowlisted hosts (allowlist mode)
 	MountCount   int    // number of extra host mounts (row hidden when 0)
+	Agent        string // injected coding agent, or "" when none (row hidden)
+	Mounted      bool   // whether the agent's host settings are mounted in
 	SSHForwarded bool
 	SSHDetail    string // shown when SSHForwarded is false
 	Identity     string // "viv shaw <hey@vivsha.ws>", or "" when unset
@@ -58,15 +60,15 @@ func RenderSummary(s Summary) string {
 		identity = valueStyle.Render(identity)
 	}
 
-	// color-code the security posture
+	// color-code the network security posture
 	var network string
 	switch s.Network {
 	case "none":
-		network = okStyle.Render("none — no network access")
+		network = okStyle.Render("none: no network access")
 	case "full":
-		network = warnStyle.Render("full — no isolation")
+		network = warnStyle.Render("full: no isolation")
 	case "allowlist":
-		network = okStyle.Render(fmt.Sprintf("allowlist — %d host(s) permitted", s.AllowCount))
+		network = okStyle.Render(fmt.Sprintf("allowlist: %d host(s) permitted", s.AllowCount))
 	default:
 		network = valueStyle.Render(s.Network)
 	}
@@ -82,6 +84,13 @@ func RenderSummary(s Summary) string {
 	}
 	if s.MountCount > 0 {
 		lines = append(lines, row("mounts", fmt.Sprintf("%d extra path(s)", s.MountCount)))
+	}
+	if s.Agent != "" {
+		agent := s.Agent
+		if s.Mounted {
+			agent += arrowStyle.Render(" (settings from host)")
+		}
+		lines = append(lines, row("agent", agent))
 	}
 	lines = append(lines, arrowStyle.Render("  › entering sandbox…"))
 	return strings.Join(lines, "\n")

@@ -1,14 +1,16 @@
 # jardinière sandbox config for this repo.
 
-startup = "claude"              # launch command run inside `nix develop`. (default = "bash")
-# image = "nixos/nix:latest"  # override the base runner image
+# launch command run inside `nix develop`. (default = "bash")
+startup = "claude --dangerously-skip-permissions"
+## override the base runner image
+# image = "nixos/nix:latest"
 
 # optionally drop a coding agent into the sandbox's nix env:
 #   "none" (default), "opencode", "claude-code", or "codex"
 agent = "claude-code"
 
-# extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
-# mode defaults to read-only.
+## extra host paths to mount into the sandbox, each "source[:target][:ro|rw]".
+## mode defaults to read-only.
 # mounts = ["~/.config/gh", "~/.netrc:rw"]
 
 [network]
@@ -18,6 +20,6 @@ agent = "claude-code"
 #   "allowlist": only the hosts in `allow`
 mode = "full"
 
-# hosts the agent may reach in allowlist mode. each entry also permits its
-# subdomains (e.g. "github.com" allows "api.github.com"). HTTP(S) only.
+## hosts the agent may reach in allowlist mode. each entry also permits its
+## subdomains (e.g. "github.com" allows "api.github.com"). HTTP(S) only.
 # allow = ["github.com", "api.anthropic.com"]

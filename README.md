@@ -151,12 +151,15 @@ jard  →  read ./jardiniere.toml
            • persistent /nix store volume
            • your git identity injected
            • ssh-agent forwarded (if Linux, or macOS on OrbStack/Docker)
+           • the agent's user settings seeded from your host
       →  exec `nix develop /work --command <startup>`
 ```
 
 ### agents
 
 jardinière is totally agnostic to which agent you use. configure your tool of choice in the target repo's own Nix flake and point `startup` at it. if you'd rather not, `jard` can drop Opencode, Claude Code, or Codex into the sandbox for you via the `agent` config param. (note that Claude Code has an unfree license! if you pick it, jardinière wll set `NIXPKGS_ALLOW_UNFREE=1` in your sandbox!)
+
+when you set `agent`, jardinière mounts that agent's user settings in from your host. this way, you don't need to re-choose your settings on each launch.
 
 ### sandboxing 
 

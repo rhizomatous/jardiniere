@@ -20,6 +20,22 @@ func TestRenderSummaryHappyPath(t *testing.T) {
 	}
 }
 
+func TestRenderSummaryAgentRow(t *testing.T) {
+	mounted := RenderSummary(Summary{Runtime: "docker", Agent: "claude-code", Mounted: true})
+	if !strings.Contains(mounted, "claude-code") || !strings.Contains(mounted, "settings from host") {
+		t.Errorf("expected agent row noting mounted settings, got:\n%s", mounted)
+	}
+	// the agent is named whether or not its settings were found.
+	bare := RenderSummary(Summary{Runtime: "docker", Agent: "codex"})
+	if !strings.Contains(bare, "codex") || strings.Contains(bare, "settings from host") {
+		t.Errorf("expected a bare agent row, got:\n%s", bare)
+	}
+	// "  agent" as a row label, not the tail of "ssh-agent".
+	if none := RenderSummary(Summary{Runtime: "docker"}); strings.Contains(none, "  agent") {
+		t.Errorf("expected no agent row when none is injected, got:\n%s", none)
+	}
+}
+
 func TestRenderSummaryFlagsMissingBits(t *testing.T) {
 	out := RenderSummary(Summary{
 		Runtime:      "podman",
