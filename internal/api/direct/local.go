@@ -53,7 +53,14 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 	// a runtime we can't reach isn't necessarily fatal. hand back a runner that fails every
 	// call with this error, so a failure only surfaces on the first command that needs a runner.
 	rt, err := detect(ctx)
-	if err != nil {
+	switch {
+	case err == nil:
+	case opts.DryRun:
+		// nothing is executed under --dry-run, so render against a nominal
+		// runtime rather than refusing. Inspecting what jard would do is the
+		// one thing that must work on a machine with no runtime at all.
+		rt = runner.Runtime{Name: "docker", Path: "docker"}
+	default:
 		return New(st, runner.Unavailable(err)), nil
 	}
 	return New(st, runner.NewOCI(rt, runnerOpts...)), nil

@@ -63,7 +63,18 @@ func newRootCmd(opts ...rootOption) *cobra.Command {
 	root.PersistentFlags().BoolVar(&g.dryRun, "dry-run", false,
 		"print the container commands instead of running them")
 
-	root.AddCommand(newLsCmd(g))
+	root.AddCommand(
+		newRunCmd(g),
+		newCreateCmd(g),
+		newLsCmd(g),
+		newStartCmd(g),
+		newStopCmd(g),
+		newRmCmd(g),
+		newInspectCmd(g),
+		newExecCmd(g),
+		newCpCmd(g),
+		newAgentsCmd(g),
+	)
 
 	for _, opt := range opts {
 		opt(root, g)

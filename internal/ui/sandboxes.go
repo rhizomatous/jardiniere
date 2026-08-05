@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +58,100 @@ func cellStyle(col int, cell string) string {
 	default:
 		return cell
 	}
+}
+
+// RenderCreated is the line printed when a sandbox is built.
+func RenderCreated(sb api.Sandbox) string {
+	return OK.Render("created ") + Value.Render(sb.Spec.Name) +
+		Faint.Render("  "+dash(sb.Spec.Image))
+}
+
+// RenderAttaching is the line printed before the terminal is handed to the
+// agent. It says whether the sandbox is new, because that is the difference
+// between a fresh environment and one carrying everything installed last time.
+func RenderAttaching(sb api.Sandbox, created bool) string {
+	what := "reattaching to"
+	if created {
+		what = "starting"
+	}
+	line := Faint.Render("🪴 "+what+" ") + Value.Render(sb.Spec.Name)
+	if ws := sb.Spec.Primary().Host; ws != "" {
+		line += Faint.Render("  " + ws)
+	}
+	return line
+}
+
+// RenderSandbox is the detail view behind `jard inspect`.
+func RenderSandbox(sb api.Sandbox) string {
+	label := lipgloss.NewStyle().Faint(true).Width(12)
+	row := func(k, v string) string { return "  " + label.Render(k) + v }
+
+	lines := []string{
+		Title.Render("🪴 " + sb.Spec.Name),
+		"  " + label.Render("status") + StatusStyle(sb.State.Status).Render(string(sb.State.Status)),
+		row("agent", dash(sb.Spec.Agent)),
+		row("image", dash(sb.Spec.Image)),
+		row("created", Age(sb.Spec.CreatedAt, time.Now())),
+	}
+	if len(sb.Spec.Workspaces) > 0 {
+		for i, ws := range sb.Spec.Workspaces {
+			key := "workspaces"
+			if i > 0 {
+				key = ""
+			}
+			mode := ""
+			if ws.ReadOnly {
+				mode = Faint.Render("  read-only")
+			}
+			lines = append(lines, row(key, ws.Host+mode))
+		}
+	}
+	if r := sb.Spec.Resources; r.CPUs > 0 || r.Memory > 0 {
+		lines = append(lines, row("limits", fmt.Sprintf("%s cpu, %s memory",
+			cpuLabel(r.CPUs), api.FormatBytes(r.Memory))))
+	}
+	for i, p := range sb.Spec.Ports {
+		key := "ports"
+		if i > 0 {
+			key = ""
+		}
+		lines = append(lines, row(key, fmt.Sprintf("%d → %d%s", p.Host, p.Sandbox, protoLabel(p.Proto))))
+	}
+	for i, k := range slices.Sorted(maps.Keys(sb.Spec.Env)) {
+		key := "env"
+		if i > 0 {
+			key = ""
+		}
+		lines = append(lines, row(key, k+"="+sb.Spec.Env[k]))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func cpuLabel(cpus float64) string {
+	if cpus <= 0 {
+		return "unlimited"
+	}
+	return strconv.FormatFloat(cpus, 'g', -1, 64)
+}
+
+func protoLabel(proto string) string {
+	if proto == "" || proto == "tcp" {
+		return ""
+	}
+	return "/" + proto
+}
+
+// RenderAgents lists the supported agents, marking the default.
+func RenderAgents(agents []api.Agent, def string) string {
+	lines := make([]string, 0, len(agents))
+	for _, a := range agents {
+		name := Value.Render(a.Name)
+		if a.Name == def {
+			name += OK.Render(" (default)")
+		}
+		lines = append(lines, "  "+name+"\n    "+Faint.Render(a.Image))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // StatusStyle colors a status by how much attention it wants.

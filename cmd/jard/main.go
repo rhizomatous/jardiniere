@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -25,10 +26,18 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := fang.Execute(ctx, newRootCmd(), fang.WithVersion(buildVersion())); err != nil {
-		return 1
+	err := fang.Execute(ctx, newRootCmd(), fang.WithVersion(buildVersion()))
+	if err == nil {
+		return 0
 	}
-	return 0
+	// an agent's own exit status passes straight through, so `jard run` is as
+	// usable in a script as running the agent directly would be.
+	var coded interface{ Code() int }
+	if errors.As(err, &coded) {
+		return coded.Code()
+	}
+	// fang prints anything else itself, styled.
+	return 1
 }
 
 // buildVersion resolves the string shown by --version. It prefers a value

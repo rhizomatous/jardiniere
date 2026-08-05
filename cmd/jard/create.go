@@ -1,0 +1,66 @@
+package main
+
+import (
+	"context"
+	"os"
+
+	"charm.land/lipgloss/v2"
+	"github.com/spf13/cobra"
+
+	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/ui"
+)
+
+func newCreateCmd(g *globals) *cobra.Command {
+	var flags specFlags
+
+	cmd := &cobra.Command{
+		Use:   "create [AGENT] [PATH...]",
+		Short: "create a sandbox without starting it",
+		Long: "Create a sandbox for the given agent over the given workspaces, without " +
+			"starting it. AGENT defaults to " + api.DefaultAgent + ", and the workspace " +
+			"defaults to the current directory.\n\n" +
+			"The first workspace is the primary: it becomes the sandbox's working " +
+			"directory and the path `jard run` reattaches by. Later ones take a :ro suffix " +
+			"to mount read-only.",
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			agent, paths := splitAgentAndPaths(args)
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			spec, err := flags.buildSpec(agent, paths, cwd)
+			if err != nil {
+				return err
+			}
+			return g.withService(cmd, func(ctx context.Context, svc api.Service) error {
+				sb, err := svc.Create(ctx, spec)
+				if err != nil {
+					return err
+				}
+				_, err = lipgloss.Fprintln(cmd.OutOrStdout(), ui.RenderCreated(sb))
+				return err
+			})
+		},
+	}
+
+	flags.bind(cmd)
+	return cmd
+}
+
+// splitAgentAndPaths reads the positional arguments of `create` and `run`.
+//
+// The first argument is the agent when it names one, and a workspace path
+// otherwise, so both `jard run claude .` and `jard run .` work. An argument
+// that looks like neither is left to the workspace parser to reject, which
+// gives a better error than guessing.
+func splitAgentAndPaths(args []string) (agent string, paths []string) {
+	if len(args) == 0 {
+		return api.DefaultAgent, nil
+	}
+	if _, err := api.LookupAgent(args[0]); err == nil {
+		return args[0], args[1:]
+	}
+	return api.DefaultAgent, args
+}
