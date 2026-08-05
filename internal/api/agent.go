@@ -1,0 +1,55 @@
+package api
+
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
+// imageRepo is where jard's base images are published. A sandbox may start from
+// any image via Spec.Image; these are only the defaults.
+const imageRepo = "ghcr.io/rhizomatous"
+
+// Agent is a coding agent jard knows how to start: which image it ships in and
+// what command runs it.
+type Agent struct {
+	Name    string
+	Image   string
+	Command []string
+}
+
+// agents are the supported agents, in the order `jard agents` lists them.
+var agents = []Agent{
+	{Name: "claude", Image: imageRepo + "/jard-claude:latest", Command: []string{"claude"}},
+	{Name: "codex", Image: imageRepo + "/jard-codex:latest", Command: []string{"codex"}},
+	{Name: "opencode", Image: imageRepo + "/jard-opencode:latest", Command: []string{"opencode"}},
+	// shell has no agent to start; it is the bare sandbox, and the one to reach
+	// for when you want to test the lifecycle without an agent in the way.
+	{Name: "shell", Image: imageRepo + "/jard-shell:latest", Command: []string{"bash", "-l"}},
+}
+
+// DefaultAgent is what `jard run` starts when no agent is named.
+const DefaultAgent = "claude"
+
+// Agents returns every supported agent.
+func Agents() []Agent { return slices.Clone(agents) }
+
+// AgentNames returns the supported agent names, for help text and errors.
+func AgentNames() []string {
+	names := make([]string, len(agents))
+	for i, a := range agents {
+		names[i] = a.Name
+	}
+	return names
+}
+
+// LookupAgent returns the named agent.
+func LookupAgent(name string) (Agent, error) {
+	for _, a := range agents {
+		if a.Name == name {
+			return a, nil
+		}
+	}
+	return Agent{}, fmt.Errorf("unknown agent %q: must be one of %s",
+		name, strings.Join(AgentNames(), ", "))
+}

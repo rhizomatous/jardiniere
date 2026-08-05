@@ -1,0 +1,175 @@
+package api
+
+import (
+	"strings"
+	"testing"
+)
+
+// valid returns a spec that passes, for tests that break one field at a time.
+func valid() Spec {
+	return Spec{
+		Name:       "demo",
+		Image:      "base:1",
+		Workspaces: []Workspace{{Host: "/home/viv/demo"}},
+	}
+}
+
+func TestValidateAcceptsAWellFormedSpec(t *testing.T) {
+	spec := valid()
+	spec.Agent = "claude"
+	spec.Env = map[string]string{"FOO": "bar", "EMPTY_VALUE": ""}
+	spec.Ports = []Port{{Host: 3000, Sandbox: 3000}, {Host: 5353, Sandbox: 53, Proto: "udp"}}
+	spec.Resources = Resources{CPUs: 2.5, Memory: 8 << 30}
+	if err := spec.Validate(); err != nil {
+		t.Errorf("Validate: %v", err)
+	}
+}
+
+func TestValidateAcceptsASpecWithNoWorkspaces(t *testing.T) {
+	spec := valid()
+	spec.Workspaces = nil
+	if err := spec.Validate(); err != nil {
+		t.Errorf("a sandbox with no workspace is legal: %v", err)
+	}
+}
+
+func TestValidateRejectsBadNames(t *testing.T) {
+	for _, name := range []string{"", "-leading", ".leading", "has space", "has/slash", "has:colon", strings.Repeat("x", 64)} {
+		spec := valid()
+		spec.Name = name
+		if err := spec.Validate(); err == nil {
+			t.Errorf("name %q should be rejected", name)
+		}
+	}
+}
+
+func TestValidateRejectsEmptyImage(t *testing.T) {
+	for _, image := range []string{"", "   "} {
+		spec := valid()
+		spec.Image = image
+		if err := spec.Validate(); err == nil {
+			t.Errorf("image %q should be rejected", image)
+		}
+	}
+}
+
+func TestValidateRejectsUnknownAgent(t *testing.T) {
+	spec := valid()
+	spec.Agent = "gemini"
+	err := spec.Validate()
+	if err == nil {
+		t.Fatal("an unsupported agent should be rejected")
+	}
+	if !strings.Contains(err.Error(), "claude") {
+		t.Errorf("err = %v, want it to list the supported agents", err)
+	}
+}
+
+func TestValidateRejectsAColonInAWorkspacePath(t *testing.T) {
+	// the one that matters: a mount spec is colon-delimited, so this would bind
+	// a different directory than the one asked for rather than erroring.
+	spec := valid()
+	spec.Workspaces = []Workspace{{Host: "/home/viv/a:b"}}
+	err := spec.Validate()
+	if err == nil {
+		t.Fatal("a workspace path containing a colon should be rejected")
+	}
+	if !strings.Contains(err.Error(), "colon") {
+		t.Errorf("err = %v, want it to name the problem", err)
+	}
+}
+
+func TestValidateRejectsBadWorkspaces(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []Workspace
+	}{
+		{"empty path", []Workspace{{Host: ""}}},
+		{"relative path", []Workspace{{Host: "relative/dir"}}},
+		{"duplicate", []Workspace{{Host: "/a"}, {Host: "/a"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := valid()
+			spec.Workspaces = tc.in
+			if err := spec.Validate(); err == nil {
+				t.Errorf("%v should be rejected", tc.in)
+			}
+		})
+	}
+}
+
+func TestValidateRejectsBadEnvKeys(t *testing.T) {
+	// "K=V=x" would bind K to "V=x" rather than failing.
+	for _, key := range []string{"", "HAS=EQUALS", "HAS\x00NULL"} {
+		spec := valid()
+		spec.Env = map[string]string{key: "v"}
+		if err := spec.Validate(); err == nil {
+			t.Errorf("env key %q should be rejected", key)
+		}
+	}
+}
+
+func TestValidateRejectsBadPorts(t *testing.T) {
+	cases := []struct {
+		name string
+		in   Port
+	}{
+		{"zero host", Port{Host: 0, Sandbox: 80}},
+		{"zero sandbox", Port{Host: 80, Sandbox: 0}},
+		{"negative", Port{Host: -1, Sandbox: 80}},
+		{"above range", Port{Host: 70000, Sandbox: 80}},
+		{"bad proto", Port{Host: 80, Sandbox: 80, Proto: "sctp"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := valid()
+			spec.Ports = []Port{tc.in}
+			if err := spec.Validate(); err == nil {
+				t.Errorf("port %+v should be rejected", tc.in)
+			}
+		})
+	}
+}
+
+func TestValidateRejectsNegativeResources(t *testing.T) {
+	// these used to be silently dropped by the renderer's `> 0` guards, so the
+	// user asked for a limit and got none.
+	for _, r := range []Resources{{CPUs: -1}, {Memory: -1}} {
+		spec := valid()
+		spec.Resources = r
+		if err := spec.Validate(); err == nil {
+			t.Errorf("resources %+v should be rejected", r)
+		}
+	}
+}
+
+func TestLookupAgent(t *testing.T) {
+	for _, name := range AgentNames() {
+		a, err := LookupAgent(name)
+		if err != nil {
+			t.Errorf("LookupAgent(%q): %v", name, err)
+			continue
+		}
+		if a.Image == "" || len(a.Command) == 0 {
+			t.Errorf("agent %q = %+v, want an image and a command", name, a)
+		}
+	}
+	if _, err := LookupAgent("nope"); err == nil {
+		t.Error("an unknown agent should error")
+	}
+}
+
+func TestDefaultAgentIsSupported(t *testing.T) {
+	if _, err := LookupAgent(DefaultAgent); err != nil {
+		t.Errorf("DefaultAgent %q is not in the registry: %v", DefaultAgent, err)
+	}
+}
+
+func TestAgentsIsACopy(t *testing.T) {
+	got := Agents()
+	got[0].Name = "clobbered"
+	if Agents()[0].Name == "clobbered" {
+		t.Error("Agents returned the package's own slice")
+	}
+}

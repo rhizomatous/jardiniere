@@ -2,11 +2,12 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
 )
@@ -23,10 +24,6 @@ const agentHome = "/home/agent"
 // idle keeps a created sandbox alive with no agent attached. Sessions arrive
 // later over exec.
 var idle = []string{"sleep", "infinity"}
-
-// Executor runs a built invocation. Swapping it is how --dry-run and unit tests
-// avoid a live runtime.
-type Executor func(ctx context.Context, inv Invocation) ([]byte, error)
 
 // OCI drives a docker-compatible CLI: docker, podman, OrbStack, or colima.
 type OCI struct {
@@ -46,21 +43,12 @@ func WithExecutor(e Executor) Option {
 
 // WithDryRun renders every invocation to w and executes nothing.
 func WithDryRun(w io.Writer) Option {
-	return WithExecutor(func(_ context.Context, inv Invocation) ([]byte, error) {
-		_, err := fmt.Fprintln(w, inv)
-		return nil, err
-	})
+	return WithExecutor(dryRunExecutor{w: w})
 }
 
-// NewOCI returns a runner driving rt. Without [WithExecutor] or [WithDryRun] it
-// builds invocations but declines to run them; live execution lands in phase 1.
+// NewOCI returns a runner driving rt.
 func NewOCI(rt Runtime, opts ...Option) *OCI {
-	o := &OCI{
-		rt: rt,
-		exec: func(context.Context, Invocation) ([]byte, error) {
-			return nil, ErrNotImplemented
-		},
-	}
+	o := &OCI{rt: rt, exec: hostExecutor{}}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -78,68 +66,92 @@ func HomeVolume(sandbox string) string { return containerPrefix + sandbox + "-ho
 
 // Create builds the container without starting it.
 func (o *OCI) Create(ctx context.Context, spec api.Spec) (ID, error) {
-	if _, err := o.run(ctx, o.CreateInvocation(spec)); err != nil {
+	if _, err := o.exec.Output(ctx, o.CreateInvocation(spec)); err != nil {
 		return "", err
 	}
+	// the runtime echoes the new container's ID, but the name is what every
+	// later invocation uses and what a human reads in `docker ps`.
 	return ID(ContainerName(spec.Name)), nil
 }
 
 // Start boots a created or stopped container.
 func (o *OCI) Start(ctx context.Context, id ID) error {
-	_, err := o.run(ctx, o.invoke("start", string(id)))
+	_, err := o.exec.Output(ctx, o.invoke("start", string(id)))
 	return err
 }
 
 // Stop halts a running container.
 func (o *OCI) Stop(ctx context.Context, id ID) error {
-	_, err := o.run(ctx, o.invoke("stop", string(id)))
+	_, err := o.exec.Output(ctx, o.invoke("stop", string(id)))
+	if isNotFound(err) {
+		return nil // already gone; the caller wanted it stopped, and it is
+	}
 	return err
 }
 
-// Remove deletes a container and the volumes jard created for it.
+// Remove deletes a container and the home volume behind it.
+//
+// The two are separate calls on purpose: `rm --volumes` reclaims only the
+// anonymous volumes a container was given, never a named one, so the home
+// volume would otherwise outlive every sandbox that ever used it.
 func (o *OCI) Remove(ctx context.Context, id ID, force bool) error {
 	args := []string{"rm", "--volumes"}
 	if force {
 		args = append(args, "--force")
 	}
-	_, err := o.run(ctx, o.invoke(append(args, string(id))...))
-	return err
+	if _, err := o.exec.Output(ctx, o.invoke(append(args, string(id))...)); err != nil && !isNotFound(err) {
+		return err
+	}
+
+	vol := HomeVolume(strings.TrimPrefix(string(id), containerPrefix))
+	if _, err := o.exec.Output(ctx, o.invoke("volume", "rm", vol)); err != nil && !isNotFound(err) {
+		return err
+	}
+	return nil
 }
 
-// Exec runs a command inside a running container.
+// Exec runs a command inside a running container, with the terminal wired
+// through so the user can interact with it.
 func (o *OCI) Exec(ctx context.Context, id ID, req api.ExecRequest) (api.ExecResult, error) {
-	if _, err := o.run(ctx, o.ExecInvocation(id, req)); err != nil {
+	code, err := o.exec.Attach(ctx, o.ExecInvocation(id, req))
+	if err != nil {
 		return api.ExecResult{}, err
 	}
-	return api.ExecResult{}, nil
+	return api.ExecResult{ExitCode: code}, nil
 }
 
 // Copy moves files between the host and a container.
 func (o *OCI) Copy(ctx context.Context, id ID, src, dst api.Path) error {
-	_, err := o.run(ctx, o.CopyInvocation(id, src, dst))
+	_, err := o.exec.Output(ctx, o.CopyInvocation(id, src, dst))
 	return err
 }
 
-// Stats streams resource samples for a running container.
+// Stats streams resource samples for a running container. The TUI in phase 2 is
+// what consumes this.
 func (o *OCI) Stats(context.Context, ID) (<-chan Stats, error) {
 	return nil, ErrNotImplemented
 }
 
-// Inspect reports a container's observed state.
+// Inspect reports a container's observed state. A container the runtime has
+// never heard of is [api.StatusMissing] rather than an error: the record
+// outliving the container is a state jard displays, not a failure.
 func (o *OCI) Inspect(ctx context.Context, id ID) (api.State, error) {
-	if _, err := o.run(ctx, o.InspectInvocation(id)); err != nil {
+	out, err := o.exec.Output(ctx, o.InspectInvocation(id))
+	if isNotFound(err) {
+		return api.State{Status: api.StatusMissing}, nil
+	}
+	if err != nil {
 		return api.State{}, err
 	}
-	return api.State{Status: api.StatusUnknown}, nil
+	return parseInspect(string(out)), nil
 }
 
 // CreateInvocation renders the `create` command line for spec. It is pure, so
 // arg-building is testable without a runtime.
 func (o *OCI) CreateInvocation(spec api.Spec) Invocation {
-	name := ContainerName(spec.Name)
 	args := []string{
 		"create",
-		"--name", name,
+		"--name", ContainerName(spec.Name),
 		"--hostname", spec.Name,
 		"--label", "jard.sandbox=" + spec.Name,
 		// persistence lives here: everything the user installs is under $HOME.
@@ -207,20 +219,57 @@ func (o *OCI) CopyInvocation(id ID, src, dst api.Path) Invocation {
 	return o.invoke("cp", copyEndpoint(id, src), copyEndpoint(id, dst))
 }
 
-// InspectInvocation renders the `inspect` command line, asking for just the
-// state fields jard reads back.
+// inspectFormat asks for just the state fields jard reads back, tab-separated
+// so a value containing a space cannot shift the others.
+const inspectFormat = "{{.State.Status}}\t{{.Id}}\t{{.State.StartedAt}}\t{{.State.ExitCode}}"
+
+// InspectInvocation renders the `inspect` command line.
 func (o *OCI) InspectInvocation(id ID) Invocation {
-	return o.invoke("inspect", "--format", "{{.State.Status}} {{.Id}} {{.State.StartedAt}} {{.State.ExitCode}}", string(id))
+	return o.invoke("inspect", "--type", "container", "--format", inspectFormat, string(id))
+}
+
+// parseInspect reads back what inspectFormat asked for. Anything it cannot make
+// sense of degrades to a zero field rather than an error, since a listing is
+// more useful with a missing timestamp than with no row.
+func parseInspect(out string) api.State {
+	fields := strings.Split(strings.TrimSpace(out), "\t")
+	state := api.State{Status: api.StatusUnknown}
+	if len(fields) > 0 {
+		state.Status = parseStatus(fields[0])
+	}
+	if len(fields) > 1 {
+		state.ContainerID = fields[1]
+	}
+	if len(fields) > 2 {
+		if t, err := time.Parse(time.RFC3339Nano, fields[2]); err == nil && !t.IsZero() {
+			state.StartedAt = t.UTC()
+		}
+	}
+	if len(fields) > 3 {
+		if code, err := strconv.Atoi(fields[3]); err == nil {
+			state.ExitCode = code
+		}
+	}
+	return state
+}
+
+// parseStatus maps a runtime's container status onto jard's smaller set.
+func parseStatus(s string) api.Status {
+	switch strings.TrimSpace(s) {
+	case "created":
+		return api.StatusCreated
+	case "running", "restarting":
+		return api.StatusRunning
+	case "paused", "exited", "dead", "removing":
+		return api.StatusStopped
+	default:
+		return api.StatusUnknown
+	}
 }
 
 // invoke pairs args with the runtime binary.
 func (o *OCI) invoke(args ...string) Invocation {
 	return Invocation{Path: o.rt.Path, Args: args}
-}
-
-// run hands an invocation to the executor.
-func (o *OCI) run(ctx context.Context, inv Invocation) ([]byte, error) {
-	return o.exec(ctx, inv)
 }
 
 // copyEndpoint renders one side of a copy for the runtime's cp.

@@ -194,12 +194,23 @@ func TestCopyInvocationRewritesSandboxSide(t *testing.T) {
 	}
 }
 
-func TestDefaultExecutorDeclinesToRun(t *testing.T) {
-	// phase 0 builds invocations but does not execute them.
-	_, err := testOCI().Create(context.Background(), api.Spec{Name: "demo", Image: "base:1"})
-	if !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("err = %v, want ErrNotImplemented", err)
-	}
+// scriptedExecutor answers invocations from canned output, and records what it
+// was asked to run.
+type scriptedExecutor struct {
+	out  []byte
+	err  error
+	code int
+	ran  []Invocation
+}
+
+func (s *scriptedExecutor) Output(_ context.Context, inv Invocation) ([]byte, error) {
+	s.ran = append(s.ran, inv)
+	return s.out, s.err
+}
+
+func (s *scriptedExecutor) Attach(_ context.Context, inv Invocation) (int, error) {
+	s.ran = append(s.ran, inv)
+	return s.code, s.err
 }
 
 func TestDryRunRendersWithoutExecuting(t *testing.T) {
@@ -238,24 +249,130 @@ func TestDryRunCoversEveryMutation(t *testing.T) {
 	}
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("rendered %d lines, want 3", len(lines))
+	want := []string{
+		"start jard-demo",
+		"stop jard-demo",
+		"rm --volumes --force jard-demo",
+		"volume rm jard-demo-home",
 	}
-	for i, want := range []string{"start jard-demo", "stop jard-demo", "rm --volumes --force jard-demo"} {
-		if !strings.HasSuffix(lines[i], want) {
-			t.Errorf("line %d = %q, want it to end with %q", i, lines[i], want)
+	if len(lines) != len(want) {
+		t.Fatalf("rendered %d lines, want %d:\n%s", len(lines), len(want), out.String())
+	}
+	for i := range want {
+		if !strings.HasSuffix(lines[i], want[i]) {
+			t.Errorf("line %d = %q, want it to end with %q", i, lines[i], want[i])
 		}
 	}
 }
 
-func TestRemoveDropsVolumes(t *testing.T) {
-	// a sandbox's home volume has to go with it, or `jard rm` leaks disk.
-	var out strings.Builder
-	if err := testOCI(WithDryRun(&out)).Remove(context.Background(), "jard-demo", false); err != nil {
+func TestRemoveDeletesTheHomeVolumeSeparately(t *testing.T) {
+	// `rm --volumes` reclaims only anonymous volumes. The home volume is named,
+	// so without its own call it outlives every sandbox that ever used it.
+	e := &scriptedExecutor{}
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
-	if !strings.Contains(out.String(), "--volumes") {
-		t.Errorf("rendered %q, want --volumes so the home volume is reclaimed", out.String())
+	if len(e.ran) != 2 {
+		t.Fatalf("ran %d invocations, want the container and the volume", len(e.ran))
+	}
+	if got := strings.Join(e.ran[1].Args, " "); got != "volume rm jard-demo-home" {
+		t.Errorf("second invocation = %q, want the home volume removed by name", got)
+	}
+}
+
+func TestRemoveTolerantOfAnAlreadyGoneContainer(t *testing.T) {
+	e := &scriptedExecutor{err: errors.New("Error: No such container: jard-demo")}
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err != nil {
+		t.Errorf("removing an already-gone sandbox should succeed: %v", err)
+	}
+}
+
+func TestRemoveReportsRealFailures(t *testing.T) {
+	e := &scriptedExecutor{err: errors.New("permission denied")}
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err == nil {
+		t.Error("a genuine removal failure must not be swallowed")
+	}
+}
+
+func TestExecPropagatesTheExitCode(t *testing.T) {
+	// an agent exiting 3 is the agent's answer, not a jard failure.
+	e := &scriptedExecutor{code: 3}
+	res, err := testOCI(WithExecutor(e)).Exec(context.Background(), "jard-demo", api.ExecRequest{Cmd: []string{"false"}})
+	if err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if res.ExitCode != 3 {
+		t.Errorf("ExitCode = %d, want 3", res.ExitCode)
+	}
+}
+
+func TestInspectParsesState(t *testing.T) {
+	e := &scriptedExecutor{out: []byte("running\tabc123\t2026-08-05T10:00:00.5Z\t0\n")}
+	st, err := testOCI(WithExecutor(e)).Inspect(context.Background(), "jard-demo")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if st.Status != api.StatusRunning {
+		t.Errorf("Status = %q, want running", st.Status)
+	}
+	if st.ContainerID != "abc123" {
+		t.Errorf("ContainerID = %q, want abc123", st.ContainerID)
+	}
+	if st.StartedAt.IsZero() {
+		t.Error("StartedAt should have parsed")
+	}
+}
+
+func TestInspectOfAMissingContainerIsNotAnError(t *testing.T) {
+	// the record outliving the container is a state jard shows, not a failure.
+	e := &scriptedExecutor{err: errors.New("Error: No such object: jard-demo")}
+	st, err := testOCI(WithExecutor(e)).Inspect(context.Background(), "jard-demo")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if st.Status != api.StatusMissing {
+		t.Errorf("Status = %q, want missing", st.Status)
+	}
+}
+
+func TestParseStatus(t *testing.T) {
+	cases := map[string]api.Status{
+		"created":    api.StatusCreated,
+		"running":    api.StatusRunning,
+		"restarting": api.StatusRunning,
+		"exited":     api.StatusStopped,
+		"dead":       api.StatusStopped,
+		"paused":     api.StatusStopped,
+		"removing":   api.StatusStopped,
+		"":           api.StatusUnknown,
+		"weird":      api.StatusUnknown,
+	}
+	for in, want := range cases {
+		if got := parseStatus(in); got != want {
+			t.Errorf("parseStatus(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestParseInspectSurvivesGarbage(t *testing.T) {
+	// a listing is more useful with a missing timestamp than with no row.
+	for _, in := range []string{"", "running", "running\tabc", "running\tabc\tnot-a-time\tnot-a-number"} {
+		st := parseInspect(in)
+		if in != "" && st.Status != api.StatusRunning {
+			t.Errorf("parseInspect(%q) lost the status", in)
+		}
+	}
+}
+
+func TestInspectUsesAnUnambiguousFormat(t *testing.T) {
+	// tab-separated, so a value containing a space cannot shift the others.
+	inv := testOCI().InspectInvocation("jard-demo")
+	format, ok := argsAfter(inv.Args, "--format")
+	if !ok {
+		t.Fatal("inspect should ask for a format")
+	}
+	if !strings.Contains(format, "\t") {
+		t.Errorf("format = %q, want tab-separated fields", format)
 	}
 }
 

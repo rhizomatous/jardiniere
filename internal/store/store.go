@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -23,13 +22,6 @@ var ErrNotFound = errors.New("no such sandbox record")
 
 // recordExt is the extension every sandbox record carries.
 const recordExt = ".json"
-
-// nameRE constrains sandbox names to what is safe as both a filename and a
-// container name.
-var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$`)
-
-// ValidName reports whether name is usable as a sandbox name.
-func ValidName(name string) bool { return nameRE.MatchString(name) }
 
 // Store is a directory of sandbox records.
 type Store struct {
@@ -49,7 +41,7 @@ func (s *Store) Dir() string { return s.dir }
 
 // Put writes a sandbox record, replacing any record under the same name.
 func (s *Store) Put(sb api.Sandbox) error {
-	if !ValidName(sb.Spec.Name) {
+	if !api.ValidName(sb.Spec.Name) {
 		return fmt.Errorf("invalid sandbox name %q", sb.Spec.Name)
 	}
 	data, err := json.MarshalIndent(sb, "", "  ")

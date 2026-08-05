@@ -42,8 +42,8 @@ func New(st *store.Store, rn runner.Runner, opts ...Option) *Service {
 
 // Create registers a sandbox and builds its container, without starting it.
 func (s *Service) Create(ctx context.Context, spec api.Spec) (api.Sandbox, error) {
-	if !store.ValidName(spec.Name) {
-		return api.Sandbox{}, fmt.Errorf("invalid sandbox name %q: use letters, digits, dot, dash, or underscore", spec.Name)
+	if err := spec.Validate(); err != nil {
+		return api.Sandbox{}, err
 	}
 	if _, err := s.store.Get(spec.Name); err == nil {
 		return api.Sandbox{}, fmt.Errorf("%q: %w", spec.Name, api.ErrExists)

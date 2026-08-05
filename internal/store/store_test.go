@@ -196,21 +196,6 @@ func TestPutRejectsUnsafeNames(t *testing.T) {
 	}
 }
 
-func TestValidName(t *testing.T) {
-	valid := []string{"demo", "my-repo", "my_repo", "repo.2", "a", "A1"}
-	for _, n := range valid {
-		if !ValidName(n) {
-			t.Errorf("ValidName(%q) = false, want true", n)
-		}
-	}
-	invalid := []string{"", "-leading", ".leading", "has space", "has/slash", "has:colon"}
-	for _, n := range invalid {
-		if ValidName(n) {
-			t.Errorf("ValidName(%q) = true, want false", n)
-		}
-	}
-}
-
 func TestPutLeavesNoTempFiles(t *testing.T) {
 	// writes go through a temp file and a rename; the temp must not linger.
 	s := testStore(t)
