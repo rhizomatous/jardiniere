@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Persistent sandboxes. `jard run` in a directory creates one the first time and reattaches to it every time after, with the packages, shell history, and agent state you left behind still in place.
+- `jard run`, `create`, `ls`, `start`, `stop`, `rm`, `inspect`, `exec`, `cp`, and `agents`. A command that takes a sandbox name defaults to the one for the current directory.
+- Reattach by workspace path or by `--name`, so `jard run` finds the right sandbox from inside a repo or from anywhere.
+- Multiple workspaces, bind-mounted at their host paths. The first is the primary; later ones take a `:ro` suffix. `jard run ~/work/frontend ~/work/backend:ro`.
+- Resource limits and published ports at create time: `--cpus`, `-m/--memory`, `-p/--publish`, `-e/--env`.
+- `--` passes everything after it to the agent verbatim, and the agent's exit status becomes jard's.
+- Base images for claude, codex, opencode, and a bare shell, published to `ghcr.io/rhizomatous/jard-<agent>`. `--image` starts from something else.
+- `jard rm` refuses a running sandbox unless `--force` is given.
 - `jard ls`, listing sandboxes and their status. `--json` for scripting, `-q` for names only.
 - Sandbox definitions and state now persist on disk under an XDG-respecting directory. `--state-dir` or `JARD_STATE_DIR` overrides where.
 - Shell completions and man page generation.
@@ -17,8 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CLI moved from Kong to Cobra, and wrapped in Fang
 - A sandbox is defined by the flags given when it is created, and thereafter by its stored spec.
 - Help, errors, and `--version` are styled. Unknown flags produce usage rather than a stack of parser output.
-- A missing or unreachable container runtime no longer stops jard from starting. It fails on the first command that needs one.
+- A missing or unreachable container runtime no longer stops jard from starting. It fails on the first command that needs one, and `--dry-run` needs no runtime at all.
 - The CLI and TUI now reach the sandbox layer only through a single `api.Service` interface, ahead of introducing a daemon in a later release.
+- Create-time settings passed to `jard run` for a sandbox that already exists now warn, rather than being silently ignored.
+- Workspaces are mounted read-write by default. Egress is unrestricted until host-enforced network policy lands.
 
 ### Removed
 

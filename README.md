@@ -1,10 +1,16 @@
 # 🪴 jardinière
 
-a Nix-based sandbox for running coding agents in a repo. point `jard` at a repo with a Nix flake to spin up a Linux container, install the repo's Nix config, and drop into a working dev env with the agent of your choice.
+`jard` gives a coding agent its own long-lived container sandbox. Create one, set it up however you like, and it stays — packages, shell history, and agent state are all still there next time.
+
+```sh
+cd ~/work/myrepo
+jard run          # first time: builds a sandbox, starts Claude Code
+                  # every time after: reattaches, with your setup intact
+```
 
 ## prerequisites
 
-you'll need an OCI-compatible container runtime on your system. any that provide a Docker-compatible interface should be fine, as is podman.
+An OCI-compatible container runtime: Docker, Podman, OrbStack, or colima. `jard` ships none of them and autodetects whichever you have.
 
 ## install
 
@@ -20,7 +26,7 @@ nix profile install github:rhizomatous/jardiniere
 
 **Nix (in your project flake):**
 
-add jardinière as an input, then apply its overlay to get `pkgs.jard`:
+Add jardinière as an input, then apply its overlay to get `pkgs.jard`:
 
 ```nix
 {
@@ -60,123 +66,114 @@ go install github.com/rhizomatous/jardiniere/cmd/jard@latest
 
 **Binary:**
 
-grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest). this _miiiiight_ not work on macOS, because codesigning is not set up yet.
+Grab a prebuilt binary for macOS or Linux from the [latest release](https://github.com/rhizomatous/jardiniere/releases/latest). This _miiiiight_ not work on macOS, because codesigning isn't set up yet.
 
 ## usage
 
 ```sh
-# sandbox the current repo
-jard
+jard run                      # the current directory, with the default agent
+jard run codex                # a different agent
+jard run ~/work/myrepo        # somewhere else
+jard run --name scratch       # reattach by name, from anywhere
 
-# sandbox a different repo
-jard --dir ../some-repo
+jard run -- --dangerously-skip-permissions   # everything after -- goes to the agent
 ```
 
-### configuring
+The first `jard run` in a directory creates a sandbox. Every one after that reattaches to it. That's the whole idea: you install what you need once, and it's still there.
 
-provide a `jardiniere.toml` in your repo to set defaults for your jardinière sessinos. for example, you might wish a repo to drop you directly into a Claude session, block all network egress, or provision Opencode for you.
-
-```toml
-# command run inside `nix develop`. default "bash"
-startup = "claude"
-
-# disable outgoing network
-[network]
-mode = "none"
-
-# inject an Opencode agent
-agent = "opencode"
+```sh
+jard ls                       # what exists, and what's running
+jard inspect myrepo           # one sandbox in full
+jard stop                     # stop the one for this directory
+jard start myrepo
+jard rm myrepo                # delete it and everything in it
+jard exec myrepo bash -lc 'npm test'
+jard cp myrepo:/home/agent/notes.md ./notes.md
+jard agents                   # what you can run
 ```
 
-### flags
+`ls` and `inspect` take `--json`. Every command that takes a sandbox name will default to the one for your current directory if you leave it out.
 
-CLI flag override what the repo's config sets.
+### workspaces
 
-| flag | config key | default | description |
-| --- | --- | --- | --- |
-| `--dir` | — | `.` | repo directory to sandbox |
-| `--startup` | `startup` | `bash` | command to run inside the dev shell |
-| `--image` | `image` | `nixos/nix:latest` | base runner image |
-| `--agent` | `agent` | `none` | coding agent to inject: `none`, `opencode`, `claude-code`, or `codex` |
-| `--mount` | `mounts` | — | extra host mount: `source[:target][:ro\|rw]` (repeatable) |
-| `--network` | `network.mode` | `full` | network egress policy: `full`, `none`, or `allowlist` |
-| `--allow` | `network.allow` | — | host reachable in `allowlist` mode (repeatable) |
-| `--dry-run` | — | — | print the container command instead of running it |
-| `--version` | — | — | print version and exit |
+The directory you run in is the sandbox's **primary workspace**. It's bind-mounted read-write at the same absolute path it has on your host, so a stack trace pointing at `/home/you/work/myrepo/main.go` means the same thing on both sides.
 
-### working with multiple repos
+Mount more than one, with `:ro` for read-only:
 
-you might wish to have a session that touches multiple repos, for example working on your app's frontend and backend together. use the `mounts` parameter for this. with each keeping its own Nix dev shell.
-
-#### from a host repo
-
-if you only want to reference other repos with read access, add the `mounts` parameter to your existing `jardiniere.toml`. (N.B., this will _not_ auto-install the Nix shell for that repo!)
-
-```toml
-# ~/work/frontend/
-mounts = [
-  "../backend:/work/backend:r"
-]
+```sh
+jard run ~/work/frontend ~/work/backend ~/work/design-docs:ro
 ```
 
-#### as a custom workspace
+The first path is the primary: it's the working directory, and the path `jard run` reattaches by. Workspaces are fixed when the sandbox is created.
 
-for more complex uses, such as if you need a full development environment for multiple services, set up a workspace. this is a directory with its own `flake.nix` and a `jardiniere.toml` that mounts the repos you want:
+### resource limits and ports
 
-```
-# ~/work/fullstack/
-├── flake.nix
-└── jardiniere.toml
+```sh
+jard create --cpus 4 -m 8GiB -p 3000 -p 8080:80 -e NODE_ENV=development
 ```
 
-```toml
-# ~/work/fullstack/jardiniere.toml
-startup = "claude"
+These are create-time settings. Passing them to `jard run` for a sandbox that already exists warns rather than silently doing nothing — recreate the sandbox to change them.
 
-mounts = [
-  "../frontend:/work/frontend:rw",
-  "../backend:/work/backend:rw",
-]
+### seeing what it would do
+
+```sh
+jard run --dry-run
 ```
 
-if you want a full, batteries-included workspace, you can populate the workspace `flake.nix` with all the tools you need. (perhaps by composing together the `flake.nix`es from each mounted repo.) this might be preferable if you want a no-fuss dev environment. alternatively, you can use a minimal `flake.nix`, and instruct your agent to work with the `flake.nix` from each repo by prefixing commands with `nix develop`. this might be preferable if your services may use conflicting dependency versions.
+Prints the exact container commands and runs none of them. Works without a container runtime installed at all, which makes it the quickest way to understand what `jard` is actually doing.
 
 ## how it works
 
 ```
-jard  →  read ./jardiniere.toml
-      →  detect whatever OCI runtime is present (docker / podman / orbstack / etc.)
-      →  run a NixOS container with:
-           • repo bind-mounted at /work
-           • persistent /nix store volume
-           • your git identity injected
-           • ssh-agent forwarded (if Linux, or macOS on OrbStack/Docker)
-           • the agent's user settings seeded from your host
-      →  exec `nix develop /work --command <startup>`
+jard run  →  detect the OCI runtime (docker / podman / orbstack / colima)
+          →  find the sandbox for this directory, or create one:
+               • from the agent's base image
+               • workspaces bind-mounted at their host paths
+               • a named volume at /home/agent
+          →  start it if it isn't running
+          →  exec the agent, with your terminal attached
 ```
 
-### agents
+The named volume at `/home/agent` is what makes persistence work. Anything installed under your home directory — apt packages you `sudo apt install`, npm globals, rustup toolchains, shell history, the agent's own state — survives `jard stop`, and lives until `jard rm`.
 
-jardinière is totally agnostic to which agent you use. configure your tool of choice in the target repo's own Nix flake and point `startup` at it. if you'd rather not, `jard` can drop Opencode, Claude Code, or Codex into the sandbox for you via the `agent` config param. (note that Claude Code has an unfree license! if you pick it, jardinière wll set `NIXPKGS_ALLOW_UNFREE=1` in your sandbox!)
+Two things deliberately don't persist that way. The agent binary lives in `/usr/local`, outside the volume, so pulling a newer image updates it. And nothing is seeded from your host: a sandbox's contents come from its image and from what you run inside it.
 
-when you set `agent`, jardinière mounts that agent's user settings in from your host. this way, you don't need to re-choose your settings on each launch.
+### images
 
-### sandboxing 
+Each agent has a base image published at `ghcr.io/rhizomatous/jard-<agent>`. They follow the same contract Docker's `sbx` uses, so third-party images are portable: Ubuntu, a non-root `agent` user at UID 1000, passwordless sudo, and proxy environment preserved across sudo.
 
-jardinière uses a Linux container to sandbox your agent. use any Docker or Podman compatible runtime of your choice. it will autodetect and use whichever you have present.
+`--image` starts from something else:
 
-on Linux, jardinière can SSH forward for you. on macOS, it can do so _if_ you're using Docker, OrbStack, or another runtime that's compatible. (podman is not.)
+```sh
+jard create --image ghcr.io/acme/our-toolchain:latest
+```
 
-### network policy
+`jard` never builds images and never commits them. If you want a different starting point, build it yourself and point at it. The [`images/`](./images/Dockerfile) directory is a reasonable place to start from.
 
-set `[network].mode` in `jardiniere.toml` to control what the agent can reach:
+## what the sandbox actually protects
 
-- `"full"` (default): unrestricted network.
-- `"none"`: no network at all.
-- `"allowlist"`: only the hosts in `allow` (and their subdomains).
+**Containers, not microVMs.** This matters, so here it is plainly:
 
-in `allowlist` mode, the sandbox joins an isolated network with no direct route out. its only egress is a proxy sidecar that permits `CONNECT` to allowed hosts only. unfortunately, this only supports HTTP(S)! so use HTTPS git remotes in this mode.
+- **macOS** — the container runs inside your runtime's Linux VM (Docker Desktop, OrbStack, colima). An escape lands the agent in that VM, not on your Mac.
+- **Linux** — a shared-kernel boundary. A kernel privilege-escalation bug is a host compromise. Rootless Podman with user namespaces is the configuration to prefer.
+- **Nested Docker** — not supported. No dind, no sysbox, no `--privileged`. Sandboxes never run privileged, and `docker build` inside one is out of scope.
+
+Kernel-level isolation is the standing gap. If you need it today, this isn't the tool.
+
+### your working tree is not protected
+
+The workspace mount is read-write, by design — the agent has to be able to edit your code. That means it can also write files that execute on **your** machine later:
+
+`.git/hooks/`, `.github/workflows/`, `Makefile`, `package.json` scripts, `.vscode/tasks.json`, `.claude/settings.json`.
+
+Committing, pushing, building, or just opening the project is enough to run them. Treat a sandbox's changes the way you'd treat a pull request from a contributor you don't know.
+
+Worth knowing: `.git/hooks/` doesn't show up in `git diff`. If you review only the diff, you won't see it.
+
+### network
+
+Not yet. Egress is currently unrestricted, and host-enforced network policy is the next thing being built. Until then, assume a sandbox can reach anything your machine can.
 
 ## development
 
-a Nix dev shell is provided. use `nix develop` or `use flake` to enter. consult [the Makefile](./Makefile) for relevant dev commands.
+A Nix dev shell is provided — `nix develop`, or `use flake` with direnv. See [the Makefile](./Makefile) for the usual commands, and [AGENTS.md](./AGENTS.md) for conventions.

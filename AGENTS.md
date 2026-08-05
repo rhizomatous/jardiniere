@@ -1,8 +1,8 @@
 # AGENTS.md
 
-**jardinière** (`jard`) is a Go CLI that runs coding agents inside isolated, persistent container sandboxes.
+**jardinière** (`jard`) is a Go CLI that runs coding agents inside isolated, persistent container sandboxes. Read `README.md` for what it does and what it protects against.
 
-It is mid-rearchitecture. `docs/next/plan.md` is the plan of record and describes where each piece is headed; this file describes what exists now. `README.md` still documents the pre-rearchitecture tool and is rewritten at the end of phase 1.
+`docs/next/plan.md` is the plan of record: it describes where each piece is headed, and is the thing to read before adding one.
 
 ## Dev environment
 
@@ -29,14 +29,26 @@ All tooling is provided in Nix dev shell: **work inside it.**
 - `internal/store`: sandbox specs + state, on disk, XDG-respecting.
 - `internal/runner`: the `Runner` interface, runtime detection, and the OCI adapter.
 - `internal/ui`: Charm-based terminal output.
+- `images/`: one multi-stage Dockerfile, a build target per agent, published to ghcr.
 
 **The invariant:** `cmd/jard` and `internal/tui` hold an `api.Service` and never
 reach past it to `internal/runner`, `internal/store`, or a container runtime.
 `depguard` enforces this; don't work around it.
 
+## Things that will bite you
+
+- **A sandbox's definition is fixed at create time.** `Spec` is written once and reread on every reattach. Anything that should be changeable needs a deliberate story for changing it.
+- **`/home/agent` is a volume mount point.** A volume takes its contents from the image only on first use, so anything the image puts under `/home/agent` is frozen the moment a sandbox is first started. Agent binaries go in `/usr/local`.
+- **`rm --volumes` does not remove named volumes,** only anonymous ones. The home volume needs its own `volume rm`, or every removed sandbox leaks its disk.
+- **Workspace paths cannot contain `:`.** A mount spec is colon-delimited, so such a path silently binds somewhere else. `Spec.Validate` rejects it; keep it that way.
+
 ## Testing
 
-Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, config generation, etc. Keep them that way: inject dependencies like `goos` rather than reading globals. `runner.Fake` covers store and service logic; `api.NewFake` covers the CLI and TUI. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
+Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, validation, and rendering. Keep them that way: inject dependencies like `goos` rather than reading globals.
+
+There are two fakes, at opposite ends of the stack. `runner.Fake` replaces only the container runtime, so `direct` and `store` run for real against a temp dir. `api.NewFake` replaces the whole sandbox layer, for driving the CLI — and it's required, not merely convenient, because `depguard` forbids `cmd/jard` from importing `internal/store`.
+
+To verify real container behavior, use `jard --dry-run` (which needs no runtime) or a live run against docker/OrbStack.
 
 ## Committing, Versioning, Releasing
 
