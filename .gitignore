@@ -6,3 +6,4 @@ result-*
 
 # direnv / nix-direnv cache
 /.direnv/
+/docs/next

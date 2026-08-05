@@ -1,6 +1,8 @@
 # AGENTS.md
 
-**jardinière** (`jard`) is a Go CLI that runs coding agents inside isolated, Nix-based container sandboxes. Read `README.md` for an in-depth description.
+**jardinière** (`jard`) is a Go CLI that runs coding agents inside isolated, persistent container sandboxes.
+
+It is mid-rearchitecture. `docs/next/plan.md` is the plan of record and describes where each piece is headed; this file describes what exists now. `README.md` still documents the pre-rearchitecture tool and is rewritten at the end of phase 1.
 
 ## Dev environment
 
@@ -9,7 +11,7 @@ All tooling is provided in Nix dev shell: **work inside it.**
 ## Commands
 
 - See `Makefile` for the common dev commands.
-- `jard --dry-run`: print the exact `docker run` command without executing it. the best way to inspect behavior without a live runtime.
+- `jard --dry-run`: print the exact container commands without executing them. the best way to inspect behavior without a live runtime.
 
 ## Conventions
 
@@ -21,15 +23,20 @@ All tooling is provided in Nix dev shell: **work inside it.**
 
 ## Layout
 
-- `cmd/jard`: CLI flags, orchestration, preflight checks (the `main` package).
-- `internal/config`: parses the `jardiniere.toml` config file.
-- `internal/runtime`: detects the container runtime.
-- `internal/sandbox`: assembles and runs the container invocation.
+- `cmd/jard`: the CLI (cobra + fang). The `main` package.
+- `internal/api`: the `Service` interface and its types.
+- `internal/api/direct`: in-process implementation of `Service`.
+- `internal/store`: sandbox specs + state, on disk, XDG-respecting.
+- `internal/runner`: the `Runner` interface, runtime detection, and the OCI adapter.
 - `internal/ui`: Charm-based terminal output.
+
+**The invariant:** `cmd/jard` and `internal/tui` hold an `api.Service` and never
+reach past it to `internal/runner`, `internal/store`, or a container runtime.
+`depguard` enforces this; don't work around it.
 
 ## Testing
 
-Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, config generation, etc. Keep them that way: inject dependencies like `goos` rather than reading globals. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
+Unit tests are **pure**, with no container runtime required. They cover arg-building, parsing, config generation, etc. Keep them that way: inject dependencies like `goos` rather than reading globals. `runner.Fake` covers store and service logic; `api.NewFake` covers the CLI and TUI. To verify real container behavior, use a running docker/OrbStack with `jard --dry-run` or a live run.
 
 ## Committing, Versioning, Releasing
 

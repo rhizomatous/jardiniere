@@ -7,6 +7,7 @@ linters:
   default: standard
   enable:
     - bodyclose
+    - depguard
     - errorlint
     - gocritic
     - misspell
@@ -17,6 +18,19 @@ linters:
     - unparam
     - usestdlibvars
     - whitespace
+
+  settings:
+    depguard:
+      rules:
+        presentation:
+          files:
+            - "**/cmd/jard/**"
+            - "**/internal/tui/**"
+          deny:
+            - pkg: github.com/rhizomatous/jardiniere/internal/runner
+              desc: go through api.Service instead
+            - pkg: github.com/rhizomatous/jardiniere/internal/store
+              desc: go through api.Service instead
 
   exclusions:
     generated: lax

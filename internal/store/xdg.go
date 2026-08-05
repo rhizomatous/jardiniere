@@ -1,0 +1,50 @@
+package store
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+)
+
+// appDir is jard's directory name under whichever base the platform gives us.
+const appDir = "jardiniere"
+
+// Env supplies the environment a root is resolved against. Injecting it keeps
+// the resolution testable without touching the real environment.
+type Env struct {
+	GOOS   string
+	Home   string
+	Getenv func(string) string
+}
+
+// HostEnv returns the running host's environment.
+func HostEnv(goos string) (Env, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Env{}, err
+	}
+	return Env{GOOS: goos, Home: home, Getenv: os.Getenv}, nil
+}
+
+// Root resolves where sandbox records live.
+//
+// JARD_STATE_DIR wins outright. Otherwise XDG_DATA_HOME is honored on every
+// platform — Linux by convention, macOS because anyone who sets it means it —
+// falling back to ~/Library/Application Support on macOS and ~/.local/share
+// elsewhere.
+func Root(env Env) (string, error) {
+	if dir := env.Getenv("JARD_STATE_DIR"); dir != "" {
+		return dir, nil
+	}
+	if dir := env.Getenv("XDG_DATA_HOME"); filepath.IsAbs(dir) {
+		return filepath.Join(dir, appDir, "sandboxes"), nil
+	}
+	if env.Home == "" {
+		return "", errors.New("cannot resolve a state directory: no home directory")
+	}
+	base := filepath.Join(env.Home, ".local", "share")
+	if env.GOOS == "darwin" {
+		base = filepath.Join(env.Home, "Library", "Application Support")
+	}
+	return filepath.Join(base, appDir, "sandboxes"), nil
+}

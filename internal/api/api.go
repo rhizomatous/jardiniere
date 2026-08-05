@@ -1,0 +1,199 @@
+// Package api defines the boundary between jard's user-facing layers and the
+// machinery that runs sandboxes. The CLI and the TUI hold a [Service] and never
+// reach past it to a store, a runner, or a container runtime.
+//
+// Nothing in [Service] assumes where the work happens, so an implementation is
+// free to do it in-process or hand it to a daemon without callers noticing.
+package api
+
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+// sentinel errors callers are expected to match with errors.Is.
+var (
+	// ErrNotFound means no sandbox matched the given reference.
+	ErrNotFound = errors.New("sandbox not found")
+	// ErrExists means a sandbox already claims that name.
+	ErrExists = errors.New("sandbox already exists")
+	// ErrRunning means the operation refused to act on a live sandbox.
+	ErrRunning = errors.New("sandbox is running")
+	// ErrNotImplemented marks surface that is declared but not yet built.
+	ErrNotImplemented = errors.New("not implemented")
+)
+
+// Service is everything jard can do to a sandbox.
+type Service interface {
+	// Create registers a new sandbox and its container, without starting it.
+	Create(ctx context.Context, spec Spec) (Sandbox, error)
+	// List returns every known sandbox, each with its observed state.
+	List(ctx context.Context) ([]Sandbox, error)
+	// Inspect returns one sandbox by reference.
+	Inspect(ctx context.Context, ref Ref) (Sandbox, error)
+	// Start boots a created or stopped sandbox.
+	Start(ctx context.Context, ref Ref) error
+	// Stop halts a running sandbox, leaving its contents intact.
+	Stop(ctx context.Context, ref Ref) error
+	// Remove deletes a sandbox and everything in it. It refuses a running
+	// sandbox unless force is set.
+	Remove(ctx context.Context, ref Ref, force bool) error
+	// Exec runs a command inside a sandbox.
+	Exec(ctx context.Context, ref Ref, req ExecRequest) (ExecResult, error)
+	// Copy moves files between the host and a sandbox. Exactly one of src and
+	// dst must name a sandbox, and that is the sandbox operated on.
+	Copy(ctx context.Context, src, dst Path) error
+	// Close releases whatever the implementation holds open.
+	Close() error
+}
+
+// Ref identifies a sandbox, either by name or by a workspace path it was
+// created for.
+type Ref struct {
+	Name string
+	Path string
+}
+
+// ByName returns a Ref matching on sandbox name.
+func ByName(name string) Ref { return Ref{Name: name} }
+
+// ByPath returns a Ref matching on primary workspace path.
+func ByPath(path string) Ref { return Ref{Path: path} }
+
+// IsZero reports whether the ref names nothing.
+func (r Ref) IsZero() bool { return r.Name == "" && r.Path == "" }
+
+// String renders the ref for error messages.
+func (r Ref) String() string {
+	switch {
+	case r.Name != "":
+		return r.Name
+	case r.Path != "":
+		return r.Path
+	default:
+		return "<unspecified>"
+	}
+}
+
+// Spec is a sandbox's durable definition.
+type Spec struct {
+	Name       string            `json:"name"`
+	Agent      string            `json:"agent,omitempty"`
+	Image      string            `json:"image"`
+	Workspaces []Workspace       `json:"workspaces,omitempty"`
+	Resources  Resources         `json:"resources,omitzero"`
+	Env        map[string]string `json:"env,omitempty"`
+	Ports      []Port            `json:"ports,omitempty"`
+	CreatedAt  time.Time         `json:"created_at"`
+}
+
+// Primary returns the sandbox's primary [Workspace], or the zero Workspace when
+// it has none.
+func (s Spec) Primary() Workspace {
+	if len(s.Workspaces) == 0 {
+		return Workspace{}
+	}
+	return s.Workspaces[0]
+}
+
+// Workspace is a host directory bound into the sandbox at the same absolute
+// path it has on the host, so paths in errors and build output resolve on both
+// sides.
+//
+// A sandbox can have several workspaces. The first is the primary: it becomes the
+// sandbox's working directory, and it is the path reattach matches on. The rest
+// are along for the ride, and are usually read-only.
+type Workspace struct {
+	Host     string `json:"host"`
+	ReadOnly bool   `json:"read_only,omitempty"`
+}
+
+// Resources specifies limits for a sandbox's resource consumption. Zero means unlimited.
+type Resources struct {
+	CPUs   float64 `json:"cpus,omitempty"`
+	Memory int64   `json:"memory,omitempty"` // bytes
+}
+
+// Port publishes a sandbox port on the host.
+type Port struct {
+	Host    int    `json:"host"`
+	Sandbox int    `json:"sandbox"`
+	Proto   string `json:"proto,omitempty"` // "tcp" (default) or "udp"
+}
+
+// State is what jard observed about a sandbox. It is derived from the
+// runtime.
+type State struct {
+	Status      Status    `json:"status"`
+	ContainerID string    `json:"container_id,omitempty"`
+	StartedAt   time.Time `json:"started_at,omitzero"`
+	ExitCode    int       `json:"exit_code,omitempty"`
+}
+
+// Status is a sandbox's lifecycle position.
+type Status string
+
+// the statuses a sandbox can report.
+const (
+	StatusUnknown Status = "unknown" // the runtime had nothing to say
+	StatusCreated Status = "created" // exists, never started
+	StatusRunning Status = "running"
+	StatusStopped Status = "stopped"
+	StatusMissing Status = "missing" // recorded here, gone from the runtime
+)
+
+// Sandbox is a stored spec paired with its observed state.
+type Sandbox struct {
+	Spec  Spec  `json:"spec"`
+	State State `json:"state"`
+}
+
+// ExecRequest describes a command to run inside a sandbox.
+type ExecRequest struct {
+	Cmd         []string
+	Env         map[string]string
+	Workdir     string
+	User        string
+	Interactive bool // wire up stdin
+	TTY         bool // allocate a pseudo-terminal
+}
+
+// ExecResult is what a finished exec reports back.
+type ExecResult struct {
+	ExitCode int
+}
+
+// Path names a file on one side of a copy. Sandbox paths are written
+// "<sandbox>:/path"; a bare path is on the host.
+type Path struct {
+	Sandbox string // empty for a host path
+	Path    string
+}
+
+// InSandbox reports whether the path lives inside a sandbox.
+func (p Path) InSandbox() bool { return p.Sandbox != "" }
+
+// CopyRef picks the sandbox a copy runs against. Exactly one side may name one:
+// two sandbox paths have no host leg to route through, and neither is a
+// host-to-host copy that has nothing to do with jard.
+func CopyRef(src, dst Path) (Ref, error) {
+	switch {
+	case src.InSandbox() && dst.InSandbox():
+		return Ref{}, errors.New("only one side of a copy may name a sandbox")
+	case src.InSandbox():
+		return ByName(src.Sandbox), nil
+	case dst.InSandbox():
+		return ByName(dst.Sandbox), nil
+	default:
+		return Ref{}, errors.New("one side of a copy must name a sandbox, as <sandbox>:/path")
+	}
+}
+
+// String renders the path in the form it was parsed from.
+func (p Path) String() string {
+	if p.InSandbox() {
+		return p.Sandbox + ":" + p.Path
+	}
+	return p.Path
+}

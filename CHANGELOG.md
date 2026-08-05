@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `jard ls`, listing sandboxes and their status. `--json` for scripting, `-q` for names only.
+- Sandbox definitions and state now persist on disk under an XDG-respecting directory. `--state-dir` or `JARD_STATE_DIR` overrides where.
+- Shell completions and man page generation.
+
+### Changed
+
+- CLI moved from Kong to Cobra, and wrapped in Fang
+- A sandbox is defined by the flags given when it is created, and thereafter by its stored spec.
+- Help, errors, and `--version` are styled. Unknown flags produce usage rather than a stack of parser output.
+- A missing or unreachable container runtime no longer stops jard from starting. It fails on the first command that needs one.
+- The CLI and TUI now reach the sandbox layer only through a single `api.Service` interface, ahead of introducing a daemon in a later release.
+
+### Removed
+
+- The `flake.nix` requirement, along with the `nix develop` entry and the shared `/nix` store volume.
+- Bare `jard` no longer starts a sandbox. It prints help.
+- The `jardiniere.toml` config file. Network policy is set host-side with `jard policy` in a later release, so that a repo cannot request its own egress permissions.
+- The `--dir`, `--startup`, `--mount`, `--network`, and `--allow` flags.
+- ssh-agent forwarding, host git identity injection, and seeding the agent's settings from the host. Nothing is seeded from the host now; a sandbox's contents come from its base image and from what you run inside it.
+- The tinyproxy allowlist sidecar, ahead of host-enforced network policy in a later release.
+
 ## [0.3.0] - 2026-08-04
 
 ### Added

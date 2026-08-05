@@ -1,6 +1,4 @@
-// Package container detects which OCI container runtime jard should drive. we probe for any known CLI whose
-// daemon is reachable, then use that.
-package container
+package runner
 
 import (
 	"context"
@@ -11,27 +9,27 @@ import (
 	"time"
 )
 
-// Runtime is a resolved, reachable container CLI.
+// Runtime is a resolved container CLI.
 type Runtime struct {
 	Name string // "docker" or "podman"
 	Path string // absolute path to the binary
 }
 
-// candidates are the runtimes we'll hunt for, in probe order.
+// candidates are the runtimes we hunt for, in probe order. OrbStack and colima
+// both present as docker.
 var candidates = []string{"docker", "podman"}
 
 // Detect finds the first runtime that is both installed and has a reachable
-// daemon. If the JARD_RUNTIME env var is set it is tried first and exclusively.
+// daemon. If JARD_RUNTIME is set it is tried first and exclusively.
 //
-// when a CLI is installed but its daemon is unreachable (e.g. OrbStack not
-// started), Detect returns an error naming that runtime so the caller can nudge
-// the user to start it.
+// When a CLI is installed but its daemon is unreachable (OrbStack not started,
+// say), the error names that runtime so the caller can nudge the user.
 func Detect(ctx context.Context) (Runtime, error) {
 	return detect(ctx, true)
 }
 
-// DetectInstalled returns the first runtime on PATH without requiring its daemon
-// to be reachable.
+// DetectInstalled returns the first runtime on PATH without requiring its
+// daemon to be reachable. This is what --dry-run uses.
 func DetectInstalled(ctx context.Context) (Runtime, error) {
 	return detect(ctx, false)
 }
