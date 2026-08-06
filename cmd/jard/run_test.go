@@ -274,16 +274,16 @@ func TestSandboxName(t *testing.T) {
 		{"/", "sandbox"},
 	}
 	for _, tc := range cases {
-		if got := sandboxName(tc.in); got != tc.want {
-			t.Errorf("sandboxName(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := api.SandboxName(tc.in); got != tc.want {
+			t.Errorf("api.SandboxName(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
 
 func TestSandboxNameAlwaysProducesAValidName(t *testing.T) {
 	for _, in := range []string{"/", "/home/viv/...", "/home/viv/---", "/home/viv/" + strings.Repeat("x", 200)} {
-		if got := sandboxName(in); !api.ValidName(got) {
-			t.Errorf("sandboxName(%q) = %q, which is not a valid sandbox name", in, got)
+		if got := api.SandboxName(in); !api.ValidName(got) {
+			t.Errorf("api.SandboxName(%q) = %q, which is not a valid sandbox name", in, got)
 		}
 	}
 }

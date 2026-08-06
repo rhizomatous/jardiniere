@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -13,6 +14,25 @@ var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$`)
 
 // ValidName reports whether name is usable as a sandbox name.
 func ValidName(name string) bool { return nameRE.MatchString(name) }
+
+// unsafeName matches every run of characters a sandbox name may not contain.
+var unsafeName = regexp.MustCompile(`[^a-zA-Z0-9_.-]+`)
+
+// SandboxName derives a default name from a workspace path, so a sandbox is
+// named after the repo it was made for. The result always satisfies ValidName.
+func SandboxName(path string) string {
+	name := unsafeName.ReplaceAllString(filepath.Base(path), "-")
+	// a name must start with a letter or digit, and stay within the length a
+	// container name allows.
+	name = strings.TrimLeft(name, "-_.")
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	if name == "" {
+		return "sandbox"
+	}
+	return name
+}
 
 // Validate checks a spec before anything acts on it. Every field here reaches a
 // container runtime as a command-line argument, where a malformed value is

@@ -34,6 +34,15 @@ func (m *Model) render() string {
 	b.WriteString(ui.Title.Render("🪴 jardinière"))
 	b.WriteString("\n\n")
 
+	// the form replaces the list rather than sitting beside it: it owns the
+	// keyboard while open, and showing a list you cannot move through invites
+	// the user to try.
+	if m.create != nil {
+		b.WriteString(m.create.form.View())
+		b.WriteString("\n" + ui.Faint.Render("esc cancel"))
+		return b.String()
+	}
+
 	switch {
 	case m.err != nil:
 		b.WriteString(ui.Bad.Render("could not read sandboxes: " + m.err.Error()))
@@ -113,7 +122,7 @@ func memLabel(s api.Stats) string {
 // renderFooter shows either the full key list or a one-line reminder.
 func (m *Model) renderFooter() string {
 	if !m.showHelp {
-		return ui.Faint.Render("↑/↓ move · enter attach · x shell · s start/stop · r remove · ? help · q quit")
+		return ui.Faint.Render("↑/↓ move · c create · enter attach · x shell · s start/stop · r remove · ? help · q quit")
 	}
 	lines := make([]string, 0, len(Keys))
 	for _, k := range Keys {

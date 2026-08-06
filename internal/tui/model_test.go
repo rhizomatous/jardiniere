@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -26,14 +27,47 @@ func sandbox(name string, status api.Status) api.Sandbox {
 }
 
 // press sends a keypress and returns the updated model.
+//
+// It also runs whatever command the update produced and feeds the result back,
+// the way bubbletea's loop does. Dropping the command would make every test
+// pass whether or not the key was wired to anything, since starting, stopping,
+// removing, and creating all happen inside one.
 func press(t *testing.T, m *Model, key string) *Model {
 	t.Helper()
-	next, _ := m.Update(tea.KeyPressMsg{Code: keyCode(key), Text: key})
+	next, cmd := m.Update(tea.KeyPressMsg{Code: keyCode(key), Text: key})
 	got, ok := next.(*Model)
 	if !ok {
 		t.Fatalf("Update returned %T, want *Model", next)
 	}
+	msg, ok := runCmd(cmd)
+	if !ok || msg == nil {
+		return got
+	}
+	next, _ = got.Update(msg)
+	if got, ok = next.(*Model); !ok {
+		t.Fatalf("Update returned %T, want *Model", next)
+	}
 	return got
+}
+
+// runCmd runs a command, giving up on one that does not finish promptly.
+//
+// Everything worth asserting on resolves immediately against a fake service.
+// The commands that don't are timers — the form's cursor blink, the list
+// refresh — and waiting out their intervals would cost seconds per keypress
+// while telling us nothing.
+func runCmd(cmd tea.Cmd) (tea.Msg, bool) {
+	if cmd == nil {
+		return nil, false
+	}
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+	select {
+	case msg := <-done:
+		return msg, true
+	case <-time.After(100 * time.Millisecond):
+		return nil, false
+	}
 }
 
 // keyCode maps the keys these tests use onto their rune, which is what

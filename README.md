@@ -102,6 +102,7 @@ Run `jard` with no arguments and you get a dashboard instead: every sandbox, its
 | key | |
 | --- | --- |
 | `↑` `↓` / `k` `j` | move |
+| `c` | create a sandbox |
 | `enter` | attach the agent |
 | `x` | open a shell |
 | `s` | start or stop |

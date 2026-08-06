@@ -18,6 +18,7 @@ type Key struct {
 // Keys are the dashboard's bindings, in the order `?` shows them.
 var Keys = []Key{
 	{Keys: []string{"↑/k", "↓/j"}, Help: "move"},
+	{Keys: []string{"c"}, Help: "create a sandbox"},
 	{Keys: []string{"enter"}, Help: "attach the agent"},
 	{Keys: []string{"x"}, Help: "shell"},
 	{Keys: []string{"s"}, Help: "start / stop"},
@@ -54,6 +55,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "G", "end":
 		m.cursor = len(m.sandboxes) - 1
 		m.clampCursor()
+	case "c":
+		return m, m.startCreate()
 	case "enter":
 		return m, m.attachSelected(agentCommand)
 	case "x":

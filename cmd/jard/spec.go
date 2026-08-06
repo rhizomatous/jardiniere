@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -81,7 +79,7 @@ func (f *specFlags) buildSpec(agent string, paths []string, cwd string) (api.Spe
 
 	spec.Name = f.name
 	if spec.Name == "" {
-		spec.Name = sandboxName(workspaces[0].Host)
+		spec.Name = api.SandboxName(workspaces[0].Host)
 	}
 
 	for _, p := range f.ports {
@@ -125,23 +123,4 @@ func mustBeDir(path string) error {
 		return fmt.Errorf("workspace %s is not a directory", path)
 	}
 	return nil
-}
-
-// unsafeName matches every run of characters a sandbox name may not contain.
-var unsafeName = regexp.MustCompile(`[^a-zA-Z0-9_.-]+`)
-
-// sandboxName derives a default name from a workspace path, so `jard run` in a
-// repo names the sandbox after it.
-func sandboxName(path string) string {
-	name := unsafeName.ReplaceAllString(filepath.Base(path), "-")
-	// a name must start with a letter or digit, and stay within the length a
-	// container name allows.
-	name = strings.TrimLeft(name, "-_.")
-	if len(name) > 63 {
-		name = name[:63]
-	}
-	if name == "" {
-		return "sandbox"
-	}
-	return name
 }

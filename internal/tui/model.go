@@ -37,6 +37,8 @@ type Model struct {
 	// pending names the sandbox an action is running against, so the row can
 	// say so rather than appearing to have ignored the keypress.
 	pending string
+	// create is the open new-sandbox form, or nil when the list has focus.
+	create *createForm
 	// quitting suppresses a final render of stale state on the way out.
 	quitting bool
 	// attach, when set, is the sandbox to hand the terminal to on exit.
@@ -102,6 +104,14 @@ func (m *Model) list() tea.Cmd {
 
 // Update advances the dashboard.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// an open form owns the keyboard: a keypress meant for a text field must not
+	// also move the cursor or, worse, remove a sandbox.
+	if m.create != nil {
+		if _, ok := msg.(tea.KeyPressMsg); ok {
+			return m.updateCreate(msg)
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
