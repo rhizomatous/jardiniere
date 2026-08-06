@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
@@ -178,12 +179,13 @@ func slicesDelete(s []string, drop string) []string {
 	return out
 }
 
-// isTerminal reports whether f is a character device, i.e. a real terminal
-// rather than a pipe. Asking a runtime for a TTY when stdin is piped makes it
-// refuse outright.
+// isTerminal reports whether f is a real terminal. Asking a runtime for a TTY
+// when there isn't one makes it refuse outright.
+//
+// A character-device check is not enough: /dev/null is one, so a command run
+// with stdin redirected from it would claim a terminal it does not have.
 func isTerminal(f *os.File) bool {
-	fi, err := f.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(f.Fd())
 }
 
 // exitCodeError carries an agent's non-zero exit status back to main without

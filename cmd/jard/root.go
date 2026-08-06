@@ -53,8 +53,9 @@ func newRootCmd(opts ...rootOption) *cobra.Command {
 			"state persist until you remove it.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return cmd.Help()
+			return runDashboard(cmd, g)
 		},
 	}
 

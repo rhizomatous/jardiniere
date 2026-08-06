@@ -125,12 +125,24 @@ func TestLsRejectsArguments(t *testing.T) {
 	}
 }
 
-func TestBareCommandShowsHelp(t *testing.T) {
-	out, err := runCLI(t, api.NewFake())
+func TestBareCommandFallsBackToTheListingWithoutATerminal(t *testing.T) {
+	// bare `jard` opens the dashboard, which needs a terminal. Piped or run
+	// from a script there isn't one, and failing on a missing TTY would be
+	// worse than printing what `jard ls` prints.
+	out, err := runCLI(t, api.NewFake(fixture()...))
 	if err != nil {
 		t.Fatalf("bare jard: %v", err)
 	}
-	if !strings.Contains(out, "ls") {
-		t.Errorf("bare jard should show help listing its commands:\n%s", out)
+	for _, want := range []string{"NAME", "myrepo", "scratch"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bare jard output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestBareCommandRejectsArguments(t *testing.T) {
+	// a typo'd subcommand should say so rather than opening the dashboard.
+	if _, err := runCLI(t, api.NewFake(), "lss"); err == nil {
+		t.Error("an unknown subcommand should be rejected")
 	}
 }
