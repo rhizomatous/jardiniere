@@ -115,6 +115,16 @@ func (m *Model) startCreate() tea.Cmd {
 
 // updateCreate feeds a message to the open form and acts on the result.
 func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// esc backs out. huh does not bind it, and abandoning a form is the first
+	// thing anyone will press it for.
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		switch key.String() {
+		case "esc", "escape":
+			m.create = nil
+			return m, nil
+		}
+	}
+
 	form, cmd := m.create.form.Update(msg)
 	if f, ok := form.(*huh.Form); ok {
 		m.create.form = f

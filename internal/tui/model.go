@@ -104,22 +104,9 @@ func (m *Model) list() tea.Cmd {
 
 // Update advances the dashboard.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// an open form owns the keyboard: a keypress meant for a text field must not
-	// also move the cursor or, worse, remove a sandbox.
-	if m.create != nil {
-		if _, ok := msg.(tea.KeyPressMsg); ok {
-			return m.updateCreate(msg)
-		}
-	}
-
+	// the dashboard's own messages are handled whatever has focus, so the list
+	// keeps refreshing behind an open form.
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-		return m, nil
-
-	case tea.KeyPressMsg:
-		return m.handleKey(msg)
-
 	case sandboxesMsg:
 		return m, m.applyListing(msg)
 
@@ -142,6 +129,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg.err
 		return m, nil
+
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+		if m.create == nil {
+			return m, nil
+		}
+	}
+
+	// an open form takes everything else. Not just keypresses: it advances
+	// between fields by sending itself messages, and its own Init produces one,
+	// so filtering to keys leaves it unstarted and stuck on the first field.
+	if m.create != nil {
+		return m.updateCreate(msg)
+	}
+
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		return m.handleKey(key)
 	}
 	return m, nil
 }

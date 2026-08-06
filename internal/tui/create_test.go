@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/rhizomatous/jardiniere/internal/api"
 )
 
@@ -50,6 +52,94 @@ func TestFormOwnsTheKeyboardWhileOpen(t *testing.T) {
 	}
 	if m.Attach() != nil {
 		t.Error("typing x into the form should not have asked to attach")
+	}
+}
+
+// pump keeps running whatever commands the model produces until it goes quiet,
+// the way bubbletea's loop does. A form advances between fields by sending
+// itself messages, so one command round is not enough to follow it.
+func pump(t *testing.T, m *Model, cmd tea.Cmd) *Model {
+	t.Helper()
+	for range 32 {
+		msg, ok := runCmd(cmd)
+		if !ok || msg == nil {
+			return m
+		}
+		next, nextCmd := m.Update(msg)
+		m = next.(*Model)
+		cmd = nextCmd
+	}
+	return m
+}
+
+// enter presses return and follows every message that falls out of it.
+func enter(t *testing.T, m *Model) *Model {
+	t.Helper()
+	next, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = next.(*Model)
+	return pump(t, m, cmd)
+}
+
+func TestFormAdvancesThroughItsFieldsAndSubmits(t *testing.T) {
+	// the form moves between fields by sending itself messages, and Init
+	// produces one too. Routing only keypresses to it leaves it unstarted and
+	// stuck on the first field with enter doing nothing.
+	// the form defaults its workspace to the working directory, and huh binds
+	// each field's value at init — so the directory has to be right before the
+	// form opens, not assigned onto the struct afterwards.
+	t.Chdir(tempDir(t, "myrepo"))
+	fake := api.NewFake()
+
+	m := loaded(t, fake)
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	m = pump(t, next.(*Model), cmd)
+	if m.create == nil {
+		t.Fatal("c should have opened the form")
+	}
+
+	// workspace → agent → name → submit.
+	for i := range 3 {
+		if m.create == nil {
+			t.Fatalf("the form closed after %d of 3 fields", i)
+		}
+		m = enter(t, m)
+	}
+
+	if m.create != nil {
+		t.Fatal("the form should have closed once every field was answered")
+	}
+	if len(fake.Sandboxes) != 1 {
+		t.Fatalf("sandboxes = %+v, want the one the form asked for", fake.Sandboxes)
+	}
+	if got := fake.Sandboxes[0].Spec.Name; got != "myrepo" {
+		t.Errorf("name = %q, want it derived from the workspace", got)
+	}
+}
+
+func TestEscBacksOutOfTheForm(t *testing.T) {
+	// the footer advertises esc, and huh does not bind it itself.
+	fake := api.NewFake(sandbox("a", api.StatusStopped))
+	m := loaded(t, fake, fake.Sandboxes...)
+
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	m = pump(t, next.(*Model), cmd)
+	if m.create == nil {
+		t.Fatal("c should have opened the form")
+	}
+
+	next, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	m = pump(t, next.(*Model), cmd)
+	if m.create != nil {
+		t.Error("esc should have closed the form")
+	}
+	if len(fake.Sandboxes) != 1 {
+		t.Error("backing out should not have created anything")
+	}
+
+	// and the list has the keyboard again.
+	m = press(t, m, "j")
+	if m.cursor != 0 {
+		t.Errorf("cursor = %d, want the list to be usable again", m.cursor)
 	}
 }
 
