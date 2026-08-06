@@ -61,9 +61,6 @@ func ByName(name string) Ref { return Ref{Name: name} }
 // ByPath returns a Ref matching on primary workspace path.
 func ByPath(path string) Ref { return Ref{Path: path} }
 
-// IsZero reports whether the ref names nothing.
-func (r Ref) IsZero() bool { return r.Name == "" && r.Path == "" }
-
 // String renders the ref for error messages.
 func (r Ref) String() string {
 	switch {

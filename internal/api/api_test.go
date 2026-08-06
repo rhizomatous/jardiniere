@@ -7,12 +7,6 @@ import (
 )
 
 func TestRef(t *testing.T) {
-	if !(Ref{}).IsZero() {
-		t.Error("an empty ref should report zero")
-	}
-	if ByName("demo").IsZero() || ByPath("/a").IsZero() {
-		t.Error("a populated ref should not report zero")
-	}
 	if got := ByName("demo").String(); got != "demo" {
 		t.Errorf("String = %q, want demo", got)
 	}

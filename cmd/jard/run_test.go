@@ -106,6 +106,69 @@ func TestCreateAppliesFlags(t *testing.T) {
 	}
 }
 
+func TestCreateKeepsWorkspacesInArgumentOrder(t *testing.T) {
+	// the first workspace is the primary: it becomes the sandbox's working
+	// directory and the path `jard run` reattaches by. Reordering or reversing
+	// these would break both, silently.
+	first := workspace(t, "primary")
+	second := workspace(t, "second")
+	third := workspace(t, "third")
+
+	fake := api.NewFake()
+	if _, err := runCLI(t, fake, "create", first, second+":ro", third); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	got := fake.Sandboxes[0].Spec.Workspaces
+	want := []api.Workspace{
+		{Host: first},
+		{Host: second, ReadOnly: true},
+		{Host: third},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d workspaces, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("workspace %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	if fake.Sandboxes[0].Spec.Primary().Host != first {
+		t.Errorf("primary = %q, want the first argument %q",
+			fake.Sandboxes[0].Spec.Primary().Host, first)
+	}
+}
+
+func TestRunReattachesByThePrimaryWorkspaceNotALaterOne(t *testing.T) {
+	// only the first path identifies the sandbox. Matching on a secondary
+	// workspace would reattach the wrong one whenever two sandboxes share a
+	// read-only mount.
+	first := workspace(t, "primary")
+	second := workspace(t, "shared")
+
+	fake := api.NewFake()
+	if _, err := runCLI(t, fake, "create", first, second+":ro"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// running from the primary reattaches.
+	fake.Calls = nil
+	if _, err := runCLI(t, fake, "run", first); err != nil {
+		t.Fatalf("run from primary: %v", err)
+	}
+	if len(fake.Sandboxes) != 1 {
+		t.Fatal("running from the primary workspace should have reattached")
+	}
+
+	// running from the secondary is a different sandbox, not the same one.
+	if _, err := runCLI(t, fake, "run", second); err != nil {
+		t.Fatalf("run from secondary: %v", err)
+	}
+	if len(fake.Sandboxes) != 2 {
+		t.Error("running from a secondary workspace should not reattach the sandbox that merely mounts it")
+	}
+}
+
 func TestCreateRejectsAMissingWorkspace(t *testing.T) {
 	// better here than as an opaque mount failure from the runtime.
 	fake := api.NewFake()
