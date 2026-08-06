@@ -126,8 +126,7 @@ func (o *OCI) Copy(ctx context.Context, id ID, src, dst api.Path) error {
 	return err
 }
 
-// Stats streams resource samples for a running container. The TUI in phase 2 is
-// what consumes this.
+// Stats streams resource samples for a running container.
 func (o *OCI) Stats(context.Context, ID) (<-chan Stats, error) {
 	return nil, ErrNotImplemented
 }

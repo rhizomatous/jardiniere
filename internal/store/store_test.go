@@ -196,6 +196,28 @@ func TestPutRejectsUnsafeNames(t *testing.T) {
 	}
 }
 
+func TestReadsAndDeletesCannotEscapeTheStore(t *testing.T) {
+	// Get and Delete take a name from the caller without validating it, so the
+	// containment has to come from path() alone.
+	s := testStore(t)
+	outside := filepath.Join(filepath.Dir(s.Dir()), "outside.json")
+	if err := os.WriteFile(outside, []byte(`{"spec":{"name":"outside"}}`), 0o600); err != nil {
+		t.Fatalf("seeding a file outside the store: %v", err)
+	}
+
+	for _, name := range []string{"../outside", "../../outside", "/etc/passwd", ".."} {
+		if _, err := s.Get(name); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Get(%q) = %v, want ErrNotFound rather than a file outside the store", name, err)
+		}
+		if err := s.Delete(name); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Delete(%q) = %v, want ErrNotFound", name, err)
+		}
+	}
+	if _, err := os.Stat(outside); err != nil {
+		t.Errorf("the file outside the store was touched: %v", err)
+	}
+}
+
 func TestPutLeavesNoTempFiles(t *testing.T) {
 	// writes go through a temp file and a rename; the temp must not linger.
 	s := testStore(t)

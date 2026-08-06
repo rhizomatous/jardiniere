@@ -31,8 +31,7 @@ type Runner interface {
 	Inspect(ctx context.Context, id ID) (api.State, error)
 }
 
-// Stats is one sample of a running sandbox's resource use, as the TUI streams
-// it in phase 2.
+// Stats is one sample of a running sandbox's resource use.
 type Stats struct {
 	CPUPercent  float64
 	MemoryBytes int64

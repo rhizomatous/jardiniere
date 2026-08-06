@@ -1,6 +1,5 @@
 // Package direct implements api.Service in-process, against a local store and
-// container runtime. It is what jard uses through phase 2; from phase 3 the
-// daemon wraps this same type and api/rpc puts a socket in front of it.
+// container runtime.
 package direct
 
 import (
@@ -106,7 +105,8 @@ func (s *Service) Stop(ctx context.Context, ref api.Ref) error {
 }
 
 // Remove deletes a sandbox and everything in it. A running sandbox is refused
-// unless force is set — the same guard `sbx rm` has, for the same reason.
+// unless force is set, since removing one out from under a live session loses
+// whatever it was doing.
 func (s *Service) Remove(ctx context.Context, ref api.Ref, force bool) error {
 	sb, err := s.find(ref)
 	if err != nil {

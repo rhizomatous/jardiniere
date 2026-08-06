@@ -59,8 +59,8 @@ func TestFormatBytes(t *testing.T) {
 }
 
 func TestBytesRoundTrip(t *testing.T) {
-	// what FormatBytes prints must parse back to the same count, or the TUI and
-	// the --memory flag disagree about the same sandbox.
+	// what FormatBytes prints must parse back to the same count, or a limit
+	// read off a display no longer means what it says.
 	for _, want := range []int64{512, 2 << 10, 2 << 20, 8 << 30} {
 		got, err := ParseBytes(FormatBytes(want))
 		if err != nil {

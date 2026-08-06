@@ -133,8 +133,8 @@ func TestValidateRejectsBadPorts(t *testing.T) {
 }
 
 func TestValidateRejectsNegativeResources(t *testing.T) {
-	// these used to be silently dropped by the renderer's `> 0` guards, so the
-	// user asked for a limit and got none.
+	// the renderer omits any limit that is not positive, so an unrejected
+	// negative would leave the user having asked for a limit and got none.
 	for _, r := range []Resources{{CPUs: -1}, {Memory: -1}} {
 		spec := valid()
 		spec.Resources = r

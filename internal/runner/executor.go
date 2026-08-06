@@ -83,7 +83,8 @@ func invocationError(inv Invocation, stderr []byte, err error) error {
 }
 
 // isNotFound reports whether err is a runtime complaining that a container or
-// volume does not exist. Both docker and podman say some variant of "no such".
+// volume does not exist. Matched on the message because the runtimes offer no
+// distinguishable exit status: docker says "no such", podman "not found".
 func isNotFound(err error) bool {
 	if err == nil {
 		return false

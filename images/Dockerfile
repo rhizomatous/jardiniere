@@ -59,9 +59,9 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && echo 'agent ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/agent \
     && chmod 0440 /etc/sudoers.d/agent
 
-# the egress proxy in a later release injects credentials by rewriting requests,
-# which only works if the proxy variables survive sudo. without this, anything
-# run under sudo would bypass the policy entirely.
+# egress policy is enforced by a host-side proxy the sandbox is pointed at, so
+# anything run under sudo would bypass it entirely unless the proxy variables
+# survive the sudo environment.
 RUN printf '%s\n' \
       'Defaults env_keep += "HTTP_PROXY HTTPS_PROXY NO_PROXY"' \
       'Defaults env_keep += "http_proxy https_proxy no_proxy"' \

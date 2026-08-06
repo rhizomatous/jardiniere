@@ -13,9 +13,8 @@ import (
 // resolves against base, and the result is always absolute, because the sandbox
 // binds it at the same path the host has.
 //
-// Read-write is the default and stays the default: the direct mount is the
-// point of the tool, and a read-only default would quietly break every agent
-// that needs to write to the repo it was pointed at.
+// Read-write is the default: an agent has to be able to edit the repo it was
+// pointed at.
 func parseWorkspace(arg, base string) (api.Workspace, error) {
 	path, mode, hasMode := strings.Cut(arg, ":")
 	if path == "" {
@@ -95,11 +94,10 @@ func parsePortNumber(s, arg string) (int, error) {
 // parseCopyPath reads one side of a `jard cp` argument. "<sandbox>:/path" is
 // inside a sandbox; anything else is a host path.
 //
-// Telling the two apart is the whole difficulty, because a host path may
-// legitimately contain a colon. The rule: the text before the first colon must
-// look like a sandbox name, and what follows must be non-empty. That leaves
-// "./weird:name" and absolute paths unambiguous, and a caller who really has a
-// host path shaped like a sandbox reference can prefix it with "./".
+// A host path may legitimately contain a colon, so the two are told apart by
+// requiring the text before the first colon to look like a sandbox name, and
+// what follows to be non-empty. Absolute paths are therefore unambiguous, and a
+// host path that does look like a sandbox reference can be written "./x".
 func parseCopyPath(arg string) (api.Path, error) {
 	if arg == "" {
 		return api.Path{}, fmt.Errorf("empty path")

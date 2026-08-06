@@ -128,8 +128,9 @@ func (s *Store) Find(ref api.Ref) (api.Sandbox, error) {
 	return api.Sandbox{}, fmt.Errorf("%v: %w", ref, ErrNotFound)
 }
 
-// path is where a named record lives. Names are validated on write, so a
-// traversal attempt can only ever miss.
+// path is where a named record lives. Reads and deletes take a name from the
+// caller unvalidated, so Base strips any directory part: a traversal attempt
+// lands in the store's own directory and misses.
 func (s *Store) path(name string) string {
 	return filepath.Join(s.dir, filepath.Base(name)+recordExt)
 }
