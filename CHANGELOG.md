@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A dashboard, which `jard` with no arguments now opens: every sandbox, its status, and live CPU and memory for the running ones. `enter` attaches the agent, `x` opens a shell, `s` starts or stops, `r` removes, `?` lists the bindings.
 - Persistent sandboxes. `jard run` in a directory creates one the first time and reattaches to it every time after, with the packages, shell history, and agent state you left behind still in place.
 - `jard run`, `create`, `ls`, `start`, `stop`, `rm`, `inspect`, `exec`, `cp`, and `agents`. A command that takes a sandbox name defaults to the one for the current directory.
 - Reattach by workspace path or by `--name`, so `jard run` finds the right sandbox from inside a repo or from anywhere.
@@ -33,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 
 - The `flake.nix` requirement, along with the `nix develop` entry and the shared `/nix` store volume.
-- Bare `jard` no longer starts a sandbox. It prints help.
+- Bare `jard` no longer starts a sandbox. It opens the dashboard, or prints the sandbox listing when there is no terminal to draw on.
 - The `jardiniere.toml` config file. Network policy is set host-side with `jard policy` in a later release, so that a repo cannot request its own egress permissions.
 - The `--dir`, `--startup`, `--mount`, `--network`, and `--allow` flags.
 - ssh-agent forwarding, host git identity injection, and seeding the agent's settings from the host. Nothing is seeded from the host now; a sandbox's contents come from its base image and from what you run inside it.

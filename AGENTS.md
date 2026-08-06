@@ -28,6 +28,7 @@ All tooling is provided in Nix dev shell: **work inside it.**
 - `internal/api/direct`: in-process implementation of `Service`.
 - `internal/store`: sandbox specs + state, on disk, XDG-respecting.
 - `internal/runner`: the `Runner` interface, runtime detection, and the OCI adapter.
+- `internal/tui`: the bubbletea dashboard, which bare `jard` opens.
 - `internal/ui`: Charm-based terminal output.
 - `images/`: one multi-stage Dockerfile, a build target per agent, published to ghcr.
 
@@ -41,6 +42,8 @@ reach past it to `internal/runner`, `internal/store`, or a container runtime.
 - **`/home/agent` is a volume mount point.** A volume takes its contents from the image only on first use, so anything the image puts under `/home/agent` is frozen the moment a sandbox is first started. Agent binaries go in `/usr/local`.
 - **`rm --volumes` does not remove named volumes,** only anonymous ones. The home volume needs its own `volume rm`, or every removed sandbox leaks its disk.
 - **Workspace paths cannot contain `:`.** A mount spec is colon-delimited, so such a path silently binds somewhere else. `Spec.Validate` rejects it; keep it that way.
+- **A character-device check is not a terminal check.** `/dev/null` is a character device. Use `term.IsTerminal`, or a redirected command will claim a TTY it doesn't have.
+- **Don't drive the TUI by feeding keys to `tea.Run` in tests.** It races the program's startup and produces tests that sometimes wait for a deadline. Call `Model.Update` directly; `run_test.go` covers only that the loop starts and stops.
 
 ## Testing
 

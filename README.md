@@ -71,6 +71,7 @@ Grab a prebuilt binary for macOS or Linux from the [latest release](https://gith
 ## usage
 
 ```sh
+jard                          # the dashboard: everything you have, and its load
 jard run                      # the current directory, with the default agent
 jard run codex                # a different agent
 jard run ~/work/myrepo        # somewhere else
@@ -93,6 +94,24 @@ jard agents                   # what you can run
 ```
 
 `ls` and `inspect` take `--json`. Every command that takes a sandbox name will default to the one for your current directory if you leave it out.
+
+### the dashboard
+
+Run `jard` with no arguments and you get a dashboard instead: every sandbox, its status, and live CPU and memory for the running ones.
+
+| key | |
+| --- | --- |
+| `↑` `↓` / `k` `j` | move |
+| `enter` | attach the agent |
+| `x` | open a shell |
+| `s` | start or stop |
+| `r` | remove |
+| `?` | show every binding |
+| `q` | quit |
+
+Attaching leaves the dashboard and hands the terminal to the agent, the same as `jard run` would. When the session ends you're back at the dashboard.
+
+Piped or run from a script, `jard` prints the `ls` table rather than trying to draw a dashboard into something that isn't a terminal.
 
 ### workspaces
 
