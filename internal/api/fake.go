@@ -12,6 +12,8 @@ type Fake struct {
 	Sandboxes []Sandbox
 	// Err, when set, is returned by every method.
 	Err error
+	// Samples is what Stats replays, in order.
+	Samples []Stats
 	// Calls records method names in the order they were called.
 	Calls []string
 }
@@ -111,6 +113,23 @@ func (f *Fake) Copy(_ context.Context, src, dst Path) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// Stats replays [Fake.Samples] once and closes, so a caller ranging over the
+// channel terminates rather than waiting on a live runtime.
+func (f *Fake) Stats(_ context.Context, ref Ref) (<-chan Stats, error) {
+	if err := f.record("Stats"); err != nil {
+		return nil, err
+	}
+	if _, ok := f.find(ref); !ok {
+		return nil, ErrNotFound
+	}
+	ch := make(chan Stats, len(f.Samples))
+	for _, s := range f.Samples {
+		ch <- s
+	}
+	close(ch)
+	return ch, nil
 }
 
 // Close does nothing.

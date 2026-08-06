@@ -232,6 +232,29 @@ func TestCopyToAnUnknownSandboxIsErrNotFound(t *testing.T) {
 	}
 }
 
+func TestStatsResolvesTheRefBeforeStreaming(t *testing.T) {
+	svc, rn := testService(t)
+	ctx := context.Background()
+	if _, err := svc.Create(ctx, spec("demo")); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	rn.Calls = nil
+
+	ch, err := svc.Stats(ctx, api.ByPath("/home/viv/demo"))
+	if err != nil {
+		t.Fatalf("Stats by path: %v", err)
+	}
+	for range ch { //nolint:revive // draining is the point
+	}
+	if len(rn.Calls) != 1 || rn.Calls[0] != "Stats" {
+		t.Errorf("runner calls = %v, want a single Stats", rn.Calls)
+	}
+
+	if _, err := svc.Stats(ctx, api.ByName("nope")); !errors.Is(err, api.ErrNotFound) {
+		t.Errorf("Stats of an unknown sandbox = %v, want api.ErrNotFound", err)
+	}
+}
+
 func TestUnknownRefIsErrNotFound(t *testing.T) {
 	svc, _ := testService(t)
 	ctx := context.Background()

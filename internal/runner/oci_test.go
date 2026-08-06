@@ -213,6 +213,17 @@ func (s *scriptedExecutor) Attach(_ context.Context, inv Invocation) (int, error
 	return s.code, s.err
 }
 
+// Stream yields nothing. Tests that care about streaming use streamExecutor.
+func (s *scriptedExecutor) Stream(_ context.Context, inv Invocation) (<-chan string, error) {
+	s.ran = append(s.ran, inv)
+	if s.err != nil {
+		return nil, s.err
+	}
+	out := make(chan string)
+	close(out)
+	return out, nil
+}
+
 func TestDryRunRendersWithoutExecuting(t *testing.T) {
 	var out strings.Builder
 	o := testOCI(WithDryRun(&out))

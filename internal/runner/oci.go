@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/rhizomatous/jardiniere/internal/api"
 )
 
@@ -126,9 +128,82 @@ func (o *OCI) Copy(ctx context.Context, id ID, src, dst api.Path) error {
 	return err
 }
 
-// Stats streams resource samples for a running container.
-func (o *OCI) Stats(context.Context, ID) (<-chan Stats, error) {
-	return nil, ErrNotImplemented
+// Stats streams resource samples for a running container until it exits or ctx
+// is cancelled.
+func (o *OCI) Stats(ctx context.Context, id ID) (<-chan api.Stats, error) {
+	lines, err := o.exec.Stream(ctx, o.StatsInvocation(id))
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan api.Stats)
+	go func() {
+		defer close(out)
+		for line := range lines {
+			s, ok := parseStats(line)
+			if !ok {
+				continue // a header, a blank redraw, or a line we can't read
+			}
+			select {
+			case out <- s:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return out, nil
+}
+
+// statsFormat asks for the two fields the dashboard shows, tab-separated.
+const statsFormat = "{{.CPUPerc}}\t{{.MemUsage}}"
+
+// StatsInvocation renders the streaming `stats` command line.
+func (o *OCI) StatsInvocation(id ID) Invocation {
+	return o.invoke("stats", "--format", statsFormat, string(id))
+}
+
+// parseStats reads one sample line, "12.34%\t1.5GiB / 8GiB".
+//
+// Streaming stats repaints the terminal, so lines arrive wrapped in cursor
+// escapes and the occasional blank; ok is false for anything unreadable rather
+// than an error, since one bad sample shouldn't end the stream.
+func parseStats(line string) (api.Stats, bool) {
+	fields := strings.Split(strings.TrimSpace(ansi.Strip(line)), "\t")
+	if len(fields) < 2 {
+		return api.Stats{}, false
+	}
+
+	cpu, err := parsePercent(fields[0])
+	if err != nil {
+		return api.Stats{}, false
+	}
+	used, limit, ok := parseMemUsage(fields[1])
+	if !ok {
+		return api.Stats{}, false
+	}
+	return api.Stats{CPUPercent: cpu, MemoryBytes: used, MemoryLimit: limit}, true
+}
+
+// parsePercent reads "12.34%".
+func parsePercent(s string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(s), "%"), 64)
+}
+
+// parseMemUsage reads "1.5GiB / 8GiB" into used and limit.
+func parseMemUsage(s string) (used, limit int64, ok bool) {
+	left, right, found := strings.Cut(s, "/")
+	if !found {
+		return 0, 0, false
+	}
+	used, err := api.ParseBytes(strings.TrimSpace(left))
+	if err != nil {
+		return 0, 0, false
+	}
+	limit, err = api.ParseBytes(strings.TrimSpace(right))
+	if err != nil {
+		return 0, 0, false
+	}
+	return used, limit, true
 }
 
 // Inspect reports a container's observed state. A container the runtime has

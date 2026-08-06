@@ -82,11 +82,11 @@ func (f *Fake) Copy(_ context.Context, id ID, _, _ api.Path) error {
 }
 
 // Stats returns a closed channel; the fake streams nothing.
-func (f *Fake) Stats(context.Context, ID) (<-chan Stats, error) {
+func (f *Fake) Stats(context.Context, ID) (<-chan api.Stats, error) {
 	if err := f.record("Stats"); err != nil {
 		return nil, err
 	}
-	ch := make(chan Stats)
+	ch := make(chan api.Stats)
 	close(ch)
 	return ch, nil
 }

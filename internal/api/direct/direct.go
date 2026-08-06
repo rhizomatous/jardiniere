@@ -144,6 +144,15 @@ func (s *Service) Copy(ctx context.Context, src, dst api.Path) error {
 	return s.runner.Copy(ctx, containerID(sb), src, dst)
 }
 
+// Stats streams resource samples for a running sandbox.
+func (s *Service) Stats(ctx context.Context, ref api.Ref) (<-chan api.Stats, error) {
+	sb, err := s.find(ref)
+	if err != nil {
+		return nil, err
+	}
+	return s.runner.Stats(ctx, containerID(sb))
+}
+
 // Close releases nothing: the direct service holds no long-lived handles.
 func (s *Service) Close() error { return nil }
 

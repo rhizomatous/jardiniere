@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -23,6 +24,9 @@ type Executor interface {
 	// Attach runs inv with the terminal wired straight through and returns its
 	// exit status. A non-zero status is the command's answer, not an error.
 	Attach(ctx context.Context, inv Invocation) (int, error)
+	// Stream runs inv and yields its stdout a line at a time, closing the
+	// channel when the command exits or ctx is cancelled.
+	Stream(ctx context.Context, inv Invocation) (<-chan string, error)
 }
 
 // hostExecutor runs invocations as real subprocesses.
@@ -55,6 +59,33 @@ func (hostExecutor) Attach(ctx context.Context, inv Invocation) (int, error) {
 	return 0, nil
 }
 
+func (hostExecutor) Stream(ctx context.Context, inv Invocation) (<-chan string, error) {
+	cmd := exec.CommandContext(ctx, inv.Path, inv.Args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, invocationError(inv, nil, err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, invocationError(inv, nil, err)
+	}
+
+	lines := make(chan string)
+	go func() {
+		defer close(lines)
+		defer func() { _ = cmd.Wait() }()
+
+		scan := bufio.NewScanner(stdout)
+		for scan.Scan() {
+			select {
+			case lines <- scan.Text():
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return lines, nil
+}
+
 // dryRunExecutor renders invocations instead of running them.
 type dryRunExecutor struct{ w io.Writer }
 
@@ -66,6 +97,15 @@ func (d dryRunExecutor) Output(_ context.Context, inv Invocation) ([]byte, error
 func (d dryRunExecutor) Attach(_ context.Context, inv Invocation) (int, error) {
 	_, err := fmt.Fprintln(d.w, inv)
 	return 0, err
+}
+
+func (d dryRunExecutor) Stream(_ context.Context, inv Invocation) (<-chan string, error) {
+	if _, err := fmt.Fprintln(d.w, inv); err != nil {
+		return nil, err
+	}
+	lines := make(chan string)
+	close(lines)
+	return lines, nil
 }
 
 // invocationError turns a failed invocation into a message that names the

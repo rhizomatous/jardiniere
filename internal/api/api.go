@@ -44,6 +44,9 @@ type Service interface {
 	// Copy moves files between the host and a sandbox. Exactly one of src and
 	// dst must name a sandbox, and that is the sandbox operated on.
 	Copy(ctx context.Context, src, dst Path) error
+	// Stats streams resource samples for a running sandbox until it stops or
+	// ctx is cancelled. Callers must drain the channel or cancel ctx.
+	Stats(ctx context.Context, ref Ref) (<-chan Stats, error)
 	// Close releases whatever the implementation holds open.
 	Close() error
 }
@@ -159,6 +162,22 @@ type ExecRequest struct {
 // ExecResult is what a finished exec reports back.
 type ExecResult struct {
 	ExitCode int
+}
+
+// Stats is one sample of a running sandbox's resource use.
+type Stats struct {
+	CPUPercent  float64
+	MemoryBytes int64
+	MemoryLimit int64
+}
+
+// MemoryPercent is memory use as a share of the limit, or 0 when no limit is
+// known — which is what an unlimited sandbox reports.
+func (s Stats) MemoryPercent() float64 {
+	if s.MemoryLimit <= 0 {
+		return 0
+	}
+	return float64(s.MemoryBytes) / float64(s.MemoryLimit) * 100
 }
 
 // Path names a file on one side of a copy. Sandbox paths are written
