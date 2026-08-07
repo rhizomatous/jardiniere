@@ -30,7 +30,12 @@ type Model struct {
 
 	width, height int
 	showHelp      bool
-	err           error
+	// showDetail opens the pane under the list, which follows the cursor rather
+	// than pinning to the sandbox that was selected when it opened.
+	showDetail bool
+	err        error
+	// now measures the detail pane's ages, so tests can pin them.
+	now func() time.Time
 	// status is a transient line under the list: what just happened, or why it
 	// didn't.
 	status string
@@ -55,7 +60,7 @@ type AttachRequest struct {
 
 // New returns a dashboard over svc.
 func New(svc api.Service) *Model {
-	return &Model{svc: svc, stats: map[string]api.Stats{}}
+	return &Model{svc: svc, stats: map[string]api.Stats{}, now: time.Now}
 }
 
 // Attach reports the session the dashboard exited to run, if any.

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- A dashboard, which `jard` with no arguments now opens: every sandbox, its status, and live CPU and memory for the running ones. `c` creates one, `enter` attaches the agent, `x` opens a shell, `s` starts or stops, `r` removes, `?` lists the bindings.
+- A dashboard, which `jard` with no arguments now opens: every sandbox, its status, and live CPU and memory for the running ones. `c` creates one, `i` shows its details, `enter` attaches the agent, `x` opens a shell, `s` starts or stops, `r` removes, `?` lists the bindings.
 - Persistent sandboxes. `jard run` in a directory creates one the first time and reattaches to it every time after, with the packages, shell history, and agent state you left behind still in place.
 - `jard run`, `create`, `ls`, `start`, `stop`, `rm`, `inspect`, `exec`, `cp`, and `agents`. A command that takes a sandbox name defaults to the one for the current directory.
 - Reattach by workspace path or by `--name`, so `jard run` finds the right sandbox from inside a repo or from anywhere.

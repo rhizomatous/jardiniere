@@ -102,6 +102,7 @@ Run `jard` with no arguments and you get a dashboard instead: every sandbox, its
 | key | |
 | --- | --- |
 | `↑` `↓` / `k` `j` | move |
+| `i` | show the selected sandbox's details |
 | `c` | create a sandbox |
 | `enter` | attach the agent |
 | `x` | open a shell |
@@ -109,6 +110,8 @@ Run `jard` with no arguments and you get a dashboard instead: every sandbox, its
 | `r` | remove |
 | `?` | show every binding |
 | `q` | quit |
+
+`i` opens a pane under the list with what `jard inspect` would print — image, workspaces, limits, ports, env. It follows the cursor, so moving between sandboxes moves the details with it.
 
 Attaching leaves the dashboard and hands the terminal to the agent, the same as `jard run` would. When the session ends you're back at the dashboard.
 

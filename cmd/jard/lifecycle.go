@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -128,7 +129,7 @@ func newInspectCmd(g *globals) *cobra.Command {
 					enc.SetIndent("", "  ")
 					return enc.Encode(sb)
 				}
-				_, err = lipgloss.Fprintln(cmd.OutOrStdout(), ui.RenderSandbox(sb))
+				_, err = lipgloss.Fprintln(cmd.OutOrStdout(), ui.RenderSandbox(sb, time.Now()))
 				return err
 			})
 		},

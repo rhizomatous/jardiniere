@@ -99,6 +99,55 @@ func TestRenderSandboxesHasNoTrailingWhitespace(t *testing.T) {
 	}
 }
 
+// detailed is a sandbox with every optional field set, so a renderer that
+// drops one is caught.
+func detailed() api.Sandbox {
+	return api.Sandbox{
+		Spec: api.Spec{
+			Name:  "myrepo",
+			Agent: "claude",
+			Image: "ghcr.io/acme/base:1",
+			Workspaces: []api.Workspace{
+				{Host: "/home/viv/myrepo"},
+				{Host: "/home/viv/shared", ReadOnly: true},
+			},
+			Resources: api.Resources{CPUs: 4, Memory: 2 << 30},
+			Ports:     []api.Port{{Host: 3000, Sandbox: 3000}},
+			Env:       map[string]string{"FOO": "bar"},
+			CreatedAt: now.Add(-2 * time.Hour),
+		},
+		State: api.State{Status: api.StatusRunning},
+	}
+}
+
+func TestRenderSandboxCoversTheSpec(t *testing.T) {
+	out := plain(RenderSandbox(detailed(), now))
+	for _, want := range []string{
+		"myrepo", "running", "claude", "ghcr.io/acme/base:1", "2 hours ago",
+		"/home/viv/myrepo", "/home/viv/shared", "read-only",
+		"4 cpu", "2GiB", "3000 → 3000", "FOO=bar",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("detail view missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderSandboxFieldsLeavesTheNamingToItsCaller(t *testing.T) {
+	fields := plain(RenderSandboxFields(detailed(), now))
+	// the workspace paths end in the name too, so this checks the first line
+	// rather than the whole block.
+	if first := strings.SplitN(fields, "\n", 2)[0]; !strings.Contains(first, "status") {
+		t.Errorf("the fields should open on the definition, not a heading of their own:\n%s", fields)
+	}
+	if !strings.Contains(fields, "running") || !strings.Contains(fields, "claude") {
+		t.Errorf("the fields should still carry the definition:\n%s", fields)
+	}
+	if !strings.HasPrefix(plain(RenderSandbox(detailed(), now)), "🪴 myrepo\n") {
+		t.Error("RenderSandbox should head those same fields with the name")
+	}
+}
+
 func TestAge(t *testing.T) {
 	cases := []struct {
 		in   time.Duration

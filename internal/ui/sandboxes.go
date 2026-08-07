@@ -82,16 +82,22 @@ func RenderAttaching(sb api.Sandbox, created bool) string {
 }
 
 // RenderSandbox is the detail view behind `jard inspect`.
-func RenderSandbox(sb api.Sandbox) string {
+func RenderSandbox(sb api.Sandbox, now time.Time) string {
+	return Title.Render("🪴 "+sb.Spec.Name) + "\n" + RenderSandboxFields(sb, now)
+}
+
+// RenderSandboxFields is a sandbox's definition as label/value lines, with no
+// heading, for a caller that has already named the sandbox — the dashboard's
+// detail pane sits under a row that says which one is selected.
+func RenderSandboxFields(sb api.Sandbox, now time.Time) string {
 	label := lipgloss.NewStyle().Faint(true).Width(12)
 	row := func(k, v string) string { return "  " + label.Render(k) + v }
 
 	lines := []string{
-		Title.Render("🪴 " + sb.Spec.Name),
 		"  " + label.Render("status") + StatusStyle(sb.State.Status).Render(string(sb.State.Status)),
 		row("agent", dash(sb.Spec.Agent)),
 		row("image", dash(sb.Spec.Image)),
-		row("created", Age(sb.Spec.CreatedAt, time.Now())),
+		row("created", Age(sb.Spec.CreatedAt, now)),
 	}
 	if len(sb.Spec.Workspaces) > 0 {
 		for i, ws := range sb.Spec.Workspaces {

@@ -18,6 +18,7 @@ type Key struct {
 // Keys are the dashboard's bindings, in the order `?` shows them.
 var Keys = []Key{
 	{Keys: []string{"↑/k", "↓/j"}, Help: "move"},
+	{Keys: []string{"i"}, Help: "details"},
 	{Keys: []string{"c"}, Help: "create a sandbox"},
 	{Keys: []string{"enter"}, Help: "attach the agent"},
 	{Keys: []string{"x"}, Help: "shell"},
@@ -29,14 +30,18 @@ var Keys = []Key{
 
 // handleKey maps a keypress onto an action.
 func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// while an action is in flight, only quitting and help are allowed, so a
-	// second keypress cannot race the first against the same sandbox.
+	// while an action is in flight, only the keys that change nothing about a
+	// sandbox are allowed, so a second keypress cannot race the first against
+	// the same one.
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.quitting = true
 		return m, tea.Quit
 	case "?":
 		m.showHelp = !m.showHelp
+		return m, nil
+	case "i":
+		m.showDetail = !m.showDetail
 		return m, nil
 	}
 	if m.pending != "" {

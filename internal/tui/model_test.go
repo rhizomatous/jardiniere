@@ -96,6 +96,10 @@ func loaded(t *testing.T, svc api.Service, sandboxes ...api.Sandbox) *Model {
 // view renders without styling, for assertions on content.
 func view(m *Model) string { return ansi.Strip(m.render()) }
 
+// detail renders the pane alone, so an assertion about it can't be satisfied
+// by the list row above it, which carries the name and workspace too.
+func detail(m *Model) string { return ansi.Strip(m.renderDetail(m.renderList())) }
+
 func TestEmptyStateSaysHowToMakeOne(t *testing.T) {
 	m := loaded(t, api.NewFake())
 	if !strings.Contains(view(m), "jard run") {
@@ -402,6 +406,84 @@ func TestListingErrorIsShown(t *testing.T) {
 	next, _ := m.Update(errMsg{errors.New("no runtime")})
 	if !strings.Contains(view(next.(*Model)), "no runtime") {
 		t.Errorf("a listing failure should be visible:\n%s", view(next.(*Model)))
+	}
+}
+
+func TestDetailPaneIsClosedUntilAskedFor(t *testing.T) {
+	m := loaded(t, api.NewFake(), sandbox("a", api.StatusStopped))
+	if strings.Contains(view(m), "base:1") {
+		t.Errorf("the list should not show the image until details are open:\n%s", view(m))
+	}
+}
+
+func TestDetailPaneShowsTheSelectedSandboxsDefinition(t *testing.T) {
+	m := loaded(t, api.NewFake(), sandbox("a", api.StatusRunning))
+	m = press(t, m, "i")
+
+	out := detail(m)
+	for _, want := range []string{"status", "running", "claude", "base:1", "/home/viv/a"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("detail pane missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestDetailPaneFollowsTheCursor(t *testing.T) {
+	// the pane reads the selection on every render, rather than pinning to
+	// whatever was selected when it opened.
+	m := loaded(t, api.NewFake(), sandbox("alpha", api.StatusStopped), sandbox("beta", api.StatusStopped))
+	m = press(t, m, "i")
+	if !strings.Contains(detail(m), "/home/viv/alpha") {
+		t.Fatalf("detail pane should open on the selected sandbox:\n%s", detail(m))
+	}
+
+	m = press(t, m, "down")
+	out := detail(m)
+	if !strings.Contains(out, "/home/viv/beta") {
+		t.Errorf("detail pane should follow the cursor:\n%s", out)
+	}
+	if strings.Contains(out, "/home/viv/alpha") {
+		t.Errorf("detail pane should have left the previous sandbox behind:\n%s", out)
+	}
+}
+
+func TestDetailPaneClosesOnASecondPress(t *testing.T) {
+	m := loaded(t, api.NewFake(), sandbox("a", api.StatusStopped))
+	m = press(t, m, "i")
+	m = press(t, m, "i")
+	if strings.Contains(view(m), "base:1") {
+		t.Errorf("a second press should close the pane:\n%s", view(m))
+	}
+}
+
+func TestDetailPaneAgesAgainstTheModelsClock(t *testing.T) {
+	m := loaded(t, api.NewFake(), sandbox("a", api.StatusStopped))
+	m.sandboxes[0].Spec.CreatedAt = time.Date(2026, 8, 4, 9, 0, 0, 0, time.UTC)
+	m.now = func() time.Time { return time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC) }
+
+	if out := view(press(t, m, "i")); !strings.Contains(out, "3 hours ago") {
+		t.Errorf("detail pane should date the sandbox:\n%s", out)
+	}
+}
+
+func TestDetailPaneOpensEvenWhilePending(t *testing.T) {
+	// it changes nothing about a sandbox, so it is not what the pending guard
+	// is there to stop.
+	fake := api.NewFake(sandbox("a", api.StatusStopped))
+	m := loaded(t, fake, fake.Sandboxes...)
+	m2, _ := m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	m = m2.(*Model)
+
+	if m = press(t, m, "i"); !m.showDetail {
+		t.Error("details should toggle even with an action pending")
+	}
+}
+
+func TestDetailPaneOnAnEmptyListingIsSafe(t *testing.T) {
+	m := loaded(t, api.NewFake())
+	m = press(t, m, "i")
+	if !strings.Contains(view(m), "jard run") {
+		t.Errorf("an empty dashboard should still say how to make a sandbox:\n%s", view(m))
 	}
 }
 

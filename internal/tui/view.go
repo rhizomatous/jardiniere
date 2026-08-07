@@ -11,8 +11,12 @@ import (
 	"github.com/rhizomatous/jardiniere/internal/ui"
 )
 
-// gaugeWidth is how many cells the CPU and memory bars occupy.
-const gaugeWidth = 12
+const (
+	// gaugeWidth is how many cells the CPU and memory bars occupy.
+	gaugeWidth = 12
+	// detailIndent aligns the detail pane's rule with the rows' own indent.
+	detailIndent = 2
+)
 
 var (
 	cursorStyle   = lipgloss.NewStyle().Bold(true)
@@ -49,7 +53,11 @@ func (m *Model) render() string {
 	case len(m.sandboxes) == 0:
 		b.WriteString(ui.Faint.Render("no sandboxes yet — run `jard run` in a repo to make one"))
 	default:
-		b.WriteString(m.renderList())
+		list := m.renderList()
+		b.WriteString(list)
+		if detail := m.renderDetail(list); detail != "" {
+			b.WriteString("\n\n" + detail)
+		}
 	}
 
 	if m.status != "" {
@@ -94,6 +102,42 @@ func (m *Model) renderRow(sb api.Sandbox, selected bool) string {
 	return line
 }
 
+// renderDetail draws the selected sandbox's definition below the list — the
+// same fields `jard inspect` prints, minus its heading, since the row above
+// already says which sandbox this is.
+//
+// It reads the selection rather than a sandbox captured when the pane opened,
+// so moving the cursor moves the detail with it.
+func (m *Model) renderDetail(list string) string {
+	sb, ok := m.selected()
+	if !ok || !m.showDetail {
+		return ""
+	}
+	return rule(m.ruleWidth(list)) + "\n" + ui.RenderSandboxFields(sb, m.now())
+}
+
+// ruleWidth spans the list, so the divider frames the rows rather than the
+// terminal, and narrows to the terminal when the list is wider than it.
+func (m *Model) ruleWidth(list string) int {
+	width := 0
+	for _, line := range strings.Split(list, "\n") {
+		if w := lipgloss.Width(line); w > width {
+			width = w
+		}
+	}
+	if m.width > 0 && width > m.width {
+		width = m.width
+	}
+	return width - detailIndent
+}
+
+func rule(width int) string {
+	if width < 1 {
+		return ""
+	}
+	return strings.Repeat(" ", detailIndent) + ui.Faint.Render(strings.Repeat("─", width))
+}
+
 // gauge draws a proportion as a bar. CPU can exceed 100% on a multi-core
 // sandbox, so the bar saturates rather than overflowing its width.
 func gauge(percent float64) string {
@@ -122,7 +166,7 @@ func memLabel(s api.Stats) string {
 // renderFooter shows either the full key list or a one-line reminder.
 func (m *Model) renderFooter() string {
 	if !m.showHelp {
-		return ui.Faint.Render("↑/↓ move · c create · enter attach · x shell · s start/stop · r remove · ? help · q quit")
+		return ui.Faint.Render("↑/↓ move · i details · c create · enter attach · x shell · s start/stop · r remove · ? help · q quit")
 	}
 	lines := make([]string, 0, len(Keys))
 	for _, k := range Keys {
