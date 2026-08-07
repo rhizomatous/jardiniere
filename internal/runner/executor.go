@@ -82,6 +82,13 @@ func ptySession(cmd *exec.Cmd, inv Invocation, streams api.Streams) (int, error)
 	// job control and signals behave as they would in a real one.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
 
+	// size the terminal before the child exists. A pty opens at 0x0, and a
+	// full-screen program reads its dimensions once at startup — arriving a
+	// moment later leaves it laid out against nothing.
+	if size, ok := pendingSize(streams.Resize); ok {
+		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: size.Rows, Cols: size.Cols})
+	}
+
 	if err := cmd.Start(); err != nil {
 		_ = tty.Close()
 		return 0, invocationError(inv, nil, err)
@@ -98,6 +105,20 @@ func ptySession(cmd *exec.Cmd, inv Invocation, streams api.Streams) (int, error)
 	// throw away whatever the command printed on its way out.
 	_, _ = io.Copy(streams.Stdout, ptmx)
 	return exitStatus(cmd.Wait(), inv)
+}
+
+// pendingSize takes a terminal size that is already known, without waiting for
+// one that may never come.
+func pendingSize(sizes <-chan api.Size) (api.Size, bool) {
+	if sizes == nil {
+		return api.Size{}, false
+	}
+	select {
+	case size, ok := <-sizes:
+		return size, ok
+	default:
+		return api.Size{}, false
+	}
 }
 
 // resize applies terminal dimensions as they arrive, until the channel closes.

@@ -22,26 +22,31 @@ func hostStreams(tty bool) (streams api.Streams, stop func()) {
 	}
 
 	sizes := make(chan api.Size, 1)
+	// the opening size goes in before this returns, rather than from the
+	// goroutine below. Produced asynchronously it would race the session's
+	// start, and a session that starts without one gets a 0x0 terminal.
+	if size, ok := terminalSize(); ok {
+		sizes <- size
+	}
+
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 
-	// send the current size before the command starts, so a session opens at
-	// the right dimensions rather than at whatever the far side defaults to.
 	done := make(chan struct{})
 	go func() {
 		defer close(sizes)
 		for {
+			select {
+			case <-winch:
+			case <-done:
+				return
+			}
 			if size, ok := terminalSize(); ok {
 				select {
 				case sizes <- size:
 				case <-done:
 					return
 				}
-			}
-			select {
-			case <-winch:
-			case <-done:
-				return
 			}
 		}
 	}()

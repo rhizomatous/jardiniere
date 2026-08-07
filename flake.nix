@@ -21,8 +21,8 @@
         pname = "jard";
         inherit version;
         src = ./.;
-        vendorHash = "sha256-WVJdBRHqfuWxJ1TjaHru36ghrnIIz3SNqRSRp8/g0ms=";
-        subPackages = [ "cmd/jard" ];
+        vendorHash = "sha256-gBHm7MLLPzZqt1tLtewNqhsaKdn0Ej98vjQ8Vnfizbg=";
+        subPackages = [ "cmd/jard" "cmd/jardd" ];
         # inject the version into the same symbol the Makefile uses.
         ldflags = [ "-s" "-w" "-X" "main.version=${version}" ];
         meta = {

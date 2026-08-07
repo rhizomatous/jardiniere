@@ -95,6 +95,20 @@ jard agents                   # what you can run
 
 `ls` and `inspect` take `--json`. Every command that takes a sandbox name will default to the one for your current directory if you leave it out.
 
+### the daemon
+
+A small background process, `jardd`, owns your sandboxes. It starts on its own the first time a command needs one, so there is nothing to set up and nothing to remember.
+
+```sh
+jard daemon status            # is it running, and where does it listen
+jard daemon start             # start it deliberately
+jard daemon stop              # stop it; your sandboxes keep running
+```
+
+It exists because some of what jard does has to outlive the command that asked for it — and it's where host-enforced network policy will live. Stopping it leaves every sandbox alone: they're containers in their own right, and the next command that needs a daemon starts a new one.
+
+Two flags skip it. `--dry-run` prints what jard would do and works on a machine with no runtime and no daemon at all; `--state-dir` names a store the running daemon doesn't own, so it runs in-process rather than quietly reading the wrong one. To run a daemon against a store of your choosing, start it yourself with `jardd --state-dir`.
+
 ### the dashboard
 
 Run `jard` with no arguments and you get a dashboard instead: every sandbox, its status, and live CPU and memory for the running ones.

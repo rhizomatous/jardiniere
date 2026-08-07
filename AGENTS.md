@@ -24,8 +24,11 @@ All tooling is provided in Nix dev shell: **work inside it.**
 ## Layout
 
 - `cmd/jard`: the CLI (cobra + fang). The `main` package.
+- `cmd/jardd`: the daemon. A second `main` package, plain `flag`, no fang.
 - `internal/api`: the `Service` interface and its types.
 - `internal/api/direct`: in-process implementation of `Service`.
+- `internal/api/rpc`: the same `Service` over gRPC — client, server, and the generated contract in `jardv1`. Regenerate with `make proto`.
+- `internal/daemon`: socket lifecycle, autostart, and connecting to a running daemon.
 - `internal/store`: sandbox specs + state, on disk, XDG-respecting.
 - `internal/runner`: the `Runner` interface, runtime detection, and the OCI adapter.
 - `internal/tui`: the bubbletea dashboard, which bare `jard` opens.
@@ -36,12 +39,27 @@ All tooling is provided in Nix dev shell: **work inside it.**
 reach past it to `internal/runner`, `internal/store`, or a container runtime.
 `depguard` enforces this; don't work around it.
 
+Which implementation they hold is `open`'s business in `cmd/jard/root.go`:
+the daemon normally, in-process for `--dry-run` and `--state-dir`.
+
 ## Things that will bite you
 
 - **A sandbox's definition is fixed at create time.** `Spec` is written once and reread on every reattach. Anything that should be changeable needs a deliberate story for changing it.
 - **`/home/agent` is a volume mount point.** A volume takes its contents from the image only on first use, so anything the image puts under `/home/agent` is frozen the moment a sandbox is first started. Agent binaries go in `/usr/local`.
 - **`rm --volumes` does not remove named volumes,** only anonymous ones. The home volume needs its own `volume rm`, or every removed sandbox leaks its disk.
 - **Workspace paths cannot contain `:`.** A mount spec is colon-delimited, so such a path silently binds somewhere else. `Spec.Validate` rejects it; keep it that way.
+- **A session's stdio is a parameter, not the process's.** `api.Service.Exec`
+  takes `api.Streams` because the process running the command is not always the
+  one holding the terminal. In-process they are the CLI's own stdio and the
+  runtime inherits a real tty; through the daemon they are the far end of a
+  socket, and the executor allocates a pty because the runtime refuses `-t` on
+  a pipe.
+- **A pty opens at 0x0, and a full-screen program reads its size once.** Size
+  it before the child starts, not when the first resize arrives, or the agent
+  lays itself out against nothing.
+- **A pty has no EOF to deliver.** Its slave stays open after whatever feeds
+  the master is spent, so a command reading to EOF never finishes. This is why
+  the CLI asks for a tty only when stdin actually is one.
 - **A character-device check is not a terminal check.** `/dev/null` is a character device. Use `term.IsTerminal`, or a redirected command will claim a TTY it doesn't have.
 - **Don't drive the TUI by feeding keys to `tea.Run` in tests.** It races the program's startup and produces tests that sometimes wait for a deadline. Call `Model.Update` directly; `run_test.go` covers only that the loop starts and stops.
 

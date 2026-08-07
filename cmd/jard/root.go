@@ -7,6 +7,7 @@ import (
 
 	"github.com/rhizomatous/jardiniere/internal/api"
 	"github.com/rhizomatous/jardiniere/internal/api/direct"
+	"github.com/rhizomatous/jardiniere/internal/daemon"
 )
 
 // globals are the flags every subcommand shares.
@@ -19,15 +20,28 @@ type globals struct {
 }
 
 // open returns the api.Service the commands run against.
+//
+// Normally that is the daemon, started on demand: it owns the state, and will
+// own the egress proxy and forwarded ports, which have to outlive the command
+// that asked for them.
+//
+// Two flags stay in-process, and deliberately. --dry-run renders what jard
+// would do and must work on a machine with no runtime and no daemon at all;
+// --state-dir names a store the running daemon does not own, so honouring it
+// through the daemon would silently read the wrong one. Use `jardd --state-dir`
+// to run a daemon against a store of your choosing.
 func (g *globals) open(cmd *cobra.Command) (api.Service, error) {
 	if g.service != nil {
 		return g.service, nil
 	}
-	return direct.Open(cmd.Context(), direct.Options{
-		StateDir:  g.stateDir,
-		DryRun:    g.dryRun,
-		DryRunOut: cmd.OutOrStdout(),
-	})
+	if g.dryRun || g.stateDir != "" {
+		return direct.Open(cmd.Context(), direct.Options{
+			StateDir:  g.stateDir,
+			DryRun:    g.dryRun,
+			DryRunOut: cmd.OutOrStdout(),
+		})
+	}
+	return daemon.Connect(cmd.Context(), daemon.ConnectOptions{})
 }
 
 // withService resolves the service, runs fn, and closes it.
@@ -75,6 +89,7 @@ func newRootCmd(opts ...rootOption) *cobra.Command {
 		newExecCmd(g),
 		newCpCmd(g),
 		newAgentsCmd(g),
+		newDaemonCmd(g),
 	)
 
 	for _, opt := range opts {

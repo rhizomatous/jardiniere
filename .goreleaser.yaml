@@ -25,8 +25,26 @@ builds:
       - amd64
       - arm64
 
+  # jard autostarts jardd from beside itself, so the two ship together and
+  # from the same build. A jard that cannot find its daemon cannot run a
+  # sandbox at all.
+  - id: jardd
+    binary: jardd
+    main: ./cmd/jardd
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
 archives:
   - id: jard
+    ids: [jard, jardd]
     formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}

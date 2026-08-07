@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A background daemon, `jardd`, which owns sandbox state and lifecycle. It starts on its own the first time a command needs it, so there is nothing to set up. `jard daemon start`, `stop`, and `status` are there for when you want to drive it deliberately.
 - A dashboard, which `jard` with no arguments now opens: every sandbox, its status, and live CPU and memory for the running ones. `c` creates one, `i` shows its details, `enter` attaches the agent, `x` opens a shell, `s` starts or stops, `r` removes, `?` lists the bindings.
 - Persistent sandboxes. `jard run` in a directory creates one the first time and reattaches to it every time after, with the packages, shell history, and agent state you left behind still in place.
 - `jard run`, `create`, `ls`, `start`, `stop`, `rm`, `inspect`, `exec`, `cp`, and `agents`. A command that takes a sandbox name defaults to the one for the current directory.
@@ -27,7 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A sandbox is defined by the flags given when it is created, and thereafter by its stored spec.
 - Help, errors, and `--version` are styled. Unknown flags produce usage rather than a stack of parser output.
 - A missing or unreachable container runtime no longer stops jard from starting. It fails on the first command that needs one, and `--dry-run` needs no runtime at all.
-- The CLI and TUI now reach the sandbox layer only through a single `api.Service` interface, ahead of introducing a daemon in a later release.
+- The CLI and TUI now reach the sandbox layer only through a single `api.Service` interface, and normally reach it over a socket to the daemon rather than in-process. `--dry-run` and `--state-dir` stay in-process: the first must work with no runtime and no daemon at all, and the second names a store the running daemon does not own.
+- Sessions are now owned by the daemon, which holds the terminal on your behalf. `jard exec` and attaching from the dashboard behave as before.
 - Create-time settings passed to `jard run` for a sandbox that already exists now warn, rather than being silently ignored.
 - Workspaces are mounted read-write by default. Egress is unrestricted until host-enforced network policy lands.
 
