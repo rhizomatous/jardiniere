@@ -1,0 +1,201 @@
+// Package proxy is jard's egress control: the policy that decides what a
+// sandbox may reach, and the filtering proxy that enforces it.
+//
+// The policy engine is a pure function of (rules, target). Nothing in this file
+// opens a connection or reads a file, so the decisions can be tested
+// exhaustively rather than observed.
+package proxy
+
+import (
+	"net/netip"
+	"strconv"
+	"strings"
+)
+
+// Preset is a starting posture, chosen once and then adjusted with rules.
+type Preset string
+
+// the presets a policy can start from.
+const (
+	// PresetOpen allows everything. Egress is unrestricted.
+	PresetOpen Preset = "open"
+	// PresetBalanced denies by default and allows the places development
+	// actually needs: package registries, source hosts, and model providers.
+	PresetBalanced Preset = "balanced"
+	// PresetLockedDown denies by default and allows nothing until told to,
+	// including the model provider APIs.
+	PresetLockedDown Preset = "locked-down"
+)
+
+// Presets are the choices offered on first run, in the order to offer them.
+var Presets = []Preset{PresetBalanced, PresetOpen, PresetLockedDown}
+
+// Valid reports whether p names a preset jard knows.
+func (p Preset) Valid() bool {
+	for _, known := range Presets {
+		if p == known {
+			return true
+		}
+	}
+	return false
+}
+
+// Description is the one-line explanation the first-run wizard shows.
+func (p Preset) Description() string {
+	switch p {
+	case PresetOpen:
+		return "everything is reachable; nothing is filtered"
+	case PresetBalanced:
+		return "package registries, source hosts, and model providers; everything else denied"
+	case PresetLockedDown:
+		return "nothing is reachable until you allow it, model providers included"
+	default:
+		return ""
+	}
+}
+
+// Rule is one entry in a policy.
+//
+// Pattern is a host, optionally with a port: "example.com", "example.com:443",
+// "*.example.com". A rule with no port applies to every port.
+type Rule struct {
+	Pattern string `json:"pattern"`
+	Allow   bool   `json:"allow"`
+}
+
+// Policy is a preset plus the rules layered over it.
+type Policy struct {
+	Preset Preset `json:"preset"`
+	Rules  []Rule `json:"rules,omitempty"`
+}
+
+// Target is one thing a sandbox is trying to reach.
+type Target struct {
+	Host string
+	Port int
+}
+
+// String renders a target the way rules are written, for logs and messages.
+func (t Target) String() string {
+	if t.Port == 0 {
+		return t.Host
+	}
+	return t.Host + ":" + strconv.Itoa(t.Port)
+}
+
+// Verdict is what a policy decided, and what decided it.
+type Verdict struct {
+	Allowed bool
+	// Reason names the rule that matched, or the default that applied. It is
+	// shown to the user, so it says which rule rather than merely "denied".
+	Reason string
+}
+
+// Check decides whether a target may be reached.
+//
+// Order is deliberate. Private space is refused before any rule is consulted,
+// so no policy can hand a sandbox the host's own network. Then deny rules,
+// which beat allow rules however they were written — a denial anyone bothered
+// to express should not be undone by a broader allow sitting next to it.
+// Then allow rules, then the preset's default.
+func (p Policy) Check(t Target) Verdict {
+	if addr, err := netip.ParseAddr(t.Host); err == nil && !AllowsAddress(addr) {
+		return Verdict{Reason: "private, loopback, and link-local addresses are never reachable"}
+	}
+
+	if rule, ok := match(p.Rules, t, false); ok {
+		return Verdict{Reason: "denied by rule " + rule.Pattern}
+	}
+	if rule, ok := match(p.Rules, t, true); ok {
+		return Verdict{Allowed: true, Reason: "allowed by rule " + rule.Pattern}
+	}
+
+	if p.Preset == PresetOpen {
+		return Verdict{Allowed: true, Reason: "the open preset allows everything"}
+	}
+	return Verdict{Reason: "not allowed by any rule, and the " + string(p.Preset) + " preset denies by default"}
+}
+
+// match finds the first rule of the given kind that covers the target.
+func match(rules []Rule, t Target, allow bool) (Rule, bool) {
+	for _, r := range rules {
+		if r.Allow == allow && Matches(r.Pattern, t) {
+			return r, true
+		}
+	}
+	return Rule{}, false
+}
+
+// Matches reports whether a pattern covers a target.
+//
+// "*" covers everything. A leading "*." covers subdomains but not the domain
+// itself: "*.example.com" is not "example.com", which is why policies written
+// against real services list both. A pattern with no port covers every port.
+func Matches(pattern string, t Target) bool {
+	host, port := splitPattern(pattern)
+	if port != 0 && port != t.Port {
+		return false
+	}
+
+	target := strings.ToLower(strings.TrimSuffix(t.Host, "."))
+	host = strings.ToLower(host)
+
+	switch {
+	case host == "*":
+		return true
+	case strings.HasPrefix(host, "*."):
+		return strings.HasSuffix(target, host[1:])
+	default:
+		return target == host
+	}
+}
+
+// splitPattern separates a pattern's host from its port, tolerating a pattern
+// with no port at all. A malformed port is treated as part of the host, which
+// then matches nothing — better than silently covering every port.
+func splitPattern(pattern string) (host string, port int) {
+	i := strings.LastIndex(pattern, ":")
+	if i < 0 {
+		return pattern, 0
+	}
+	n, err := strconv.Atoi(pattern[i+1:])
+	if err != nil || n <= 0 {
+		return pattern, 0
+	}
+	return pattern[:i], n
+}
+
+// AllowsAddress reports whether an address may be connected to at all.
+//
+// This is not policy and cannot be overridden by a rule. A sandbox that could
+// reach loopback or private space would be on the host's network rather than
+// its own, and every service the host runs — including the daemon's own socket
+// and any other sandbox — would be a request away.
+func AllowsAddress(addr netip.Addr) bool {
+	if !addr.IsValid() {
+		return false
+	}
+	// an IPv4-in-IPv6 address is the IPv4 one for every purpose here, and
+	// checking the wrapper instead would miss ::ffff:127.0.0.1.
+	addr = addr.Unmap()
+
+	switch {
+	case addr.IsLoopback(),
+		addr.IsPrivate(),
+		addr.IsLinkLocalUnicast(),
+		addr.IsLinkLocalMulticast(),
+		addr.IsInterfaceLocalMulticast(),
+		addr.IsMulticast(),
+		addr.IsUnspecified():
+		return false
+	}
+	// carrier-grade NAT space, which netip has no predicate for and which
+	// runtimes hand out on some hosts.
+	if addr.Is4() && cgnat.Contains(addr) {
+		return false
+	}
+	return true
+}
+
+// cgnat is 100.64.0.0/10, RFC 6598.
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
