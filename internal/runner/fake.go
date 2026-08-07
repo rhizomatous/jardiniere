@@ -60,7 +60,7 @@ func (f *Fake) Remove(_ context.Context, id ID, _ bool) error {
 }
 
 // Exec reports a clean exit.
-func (f *Fake) Exec(_ context.Context, id ID, _ api.ExecRequest) (api.ExecResult, error) {
+func (f *Fake) Exec(_ context.Context, id ID, _ api.ExecRequest, _ api.Streams) (api.ExecResult, error) {
 	if err := f.record("Exec"); err != nil {
 		return api.ExecResult{}, err
 	}

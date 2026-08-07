@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 )
 
@@ -39,8 +40,8 @@ type Service interface {
 	// Remove deletes a sandbox and everything in it. It refuses a running
 	// sandbox unless force is set.
 	Remove(ctx context.Context, ref Ref, force bool) error
-	// Exec runs a command inside a sandbox.
-	Exec(ctx context.Context, ref Ref, req ExecRequest) (ExecResult, error)
+	// Exec runs a command inside a sandbox, with streams wired to its stdio.
+	Exec(ctx context.Context, ref Ref, req ExecRequest, streams Streams) (ExecResult, error)
 	// Copy moves files between the host and a sandbox. Exactly one of src and
 	// dst must name a sandbox, and that is the sandbox operated on.
 	Copy(ctx context.Context, src, dst Path) error
@@ -162,6 +163,26 @@ type ExecRequest struct {
 // ExecResult is what a finished exec reports back.
 type ExecResult struct {
 	ExitCode int
+}
+
+// Streams are the ends of a session's stdio.
+//
+// Exec takes them explicitly because the process running the command is not
+// always the one holding the terminal. In-process they are the CLI's own
+// stdio; with a daemon they are the far end of a socket, and the daemon has no
+// terminal of its own to fall back on.
+type Streams struct {
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	// Resize carries the terminal's dimensions, the first before the session
+	// starts and one on every change. Nil when there is no terminal to track.
+	Resize <-chan Size
+}
+
+// Size is a terminal's dimensions.
+type Size struct {
+	Rows, Cols uint16
 }
 
 // Stats is one sample of a running sandbox's resource use.

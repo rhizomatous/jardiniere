@@ -1,0 +1,125 @@
+package rpc
+
+import (
+	"context"
+	"fmt"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/api/rpc/jardv1"
+)
+
+// Client is an [api.Service] backed by a daemon on the other end of a unix
+// socket. Callers cannot tell it apart from the in-process implementation,
+// which is the whole point of the interface.
+type Client struct {
+	conn *grpc.ClientConn
+	svc  jardv1.SandboxesClient
+}
+
+var _ api.Service = (*Client)(nil)
+
+// Dial opens a client against the daemon listening on socket.
+//
+// It does not connect: gRPC dials lazily, on the first call. Probing daemon
+// health belongs to whoever decides whether to start one, not here.
+func Dial(socket string) (*Client, error) {
+	conn, err := grpc.NewClient("unix:"+socket,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("connecting to the jard daemon at %s: %w", socket, err)
+	}
+	return NewClient(conn), nil
+}
+
+// NewClient wraps an established connection. Tests use it to run against an
+// in-memory transport rather than a socket on disk.
+func NewClient(conn *grpc.ClientConn) *Client {
+	return &Client{conn: conn, svc: jardv1.NewSandboxesClient(conn)}
+}
+
+// Close releases the connection to the daemon. It does not stop the daemon.
+func (c *Client) Close() error { return c.conn.Close() }
+
+// Create builds a sandbox and returns it as stored.
+func (c *Client) Create(ctx context.Context, spec api.Spec) (api.Sandbox, error) {
+	resp, err := c.svc.Create(ctx, &jardv1.CreateRequest{Spec: protoSpec(spec)})
+	if err != nil {
+		return api.Sandbox{}, localError(err)
+	}
+	return apiSandbox(resp.GetSandbox()), nil
+}
+
+// List returns every sandbox the daemon knows about.
+func (c *Client) List(ctx context.Context) ([]api.Sandbox, error) {
+	resp, err := c.svc.List(ctx, &jardv1.ListRequest{})
+	if err != nil {
+		return nil, localError(err)
+	}
+	sandboxes := make([]api.Sandbox, 0, len(resp.GetSandboxes()))
+	for _, sb := range resp.GetSandboxes() {
+		sandboxes = append(sandboxes, apiSandbox(sb))
+	}
+	return sandboxes, nil
+}
+
+// Inspect returns one sandbox, refreshed against the runtime.
+func (c *Client) Inspect(ctx context.Context, ref api.Ref) (api.Sandbox, error) {
+	resp, err := c.svc.Inspect(ctx, &jardv1.InspectRequest{Ref: protoRef(ref)})
+	if err != nil {
+		return api.Sandbox{}, localError(err)
+	}
+	return apiSandbox(resp.GetSandbox()), nil
+}
+
+// Start boots a created or stopped sandbox.
+func (c *Client) Start(ctx context.Context, ref api.Ref) error {
+	_, err := c.svc.Start(ctx, &jardv1.StartRequest{Ref: protoRef(ref)})
+	return localError(err)
+}
+
+// Stop halts a running sandbox, leaving its contents intact.
+func (c *Client) Stop(ctx context.Context, ref api.Ref) error {
+	_, err := c.svc.Stop(ctx, &jardv1.StopRequest{Ref: protoRef(ref)})
+	return localError(err)
+}
+
+// Remove deletes a sandbox, refusing a running one unless force is set.
+func (c *Client) Remove(ctx context.Context, ref api.Ref, force bool) error {
+	_, err := c.svc.Remove(ctx, &jardv1.RemoveRequest{Ref: protoRef(ref), Force: force})
+	return localError(err)
+}
+
+// Copy moves files between the host and a sandbox.
+func (c *Client) Copy(ctx context.Context, src, dst api.Path) error {
+	_, err := c.svc.Copy(ctx, &jardv1.CopyRequest{Src: protoPath(src), Dst: protoPath(dst)})
+	return localError(err)
+}
+
+// Stats relays the daemon's samples onto a channel, matching the in-process
+// contract: the channel closes when the feed ends or ctx is cancelled.
+func (c *Client) Stats(ctx context.Context, ref api.Ref) (<-chan api.Stats, error) {
+	stream, err := c.svc.Stats(ctx, &jardv1.StatsRequest{Ref: protoRef(ref)})
+	if err != nil {
+		return nil, localError(err)
+	}
+
+	out := make(chan api.Stats)
+	go func() {
+		defer close(out)
+		for {
+			sample, err := stream.Recv()
+			if err != nil {
+				return // EOF, a cancelled context, or a dead daemon: all end the feed
+			}
+			select {
+			case out <- apiSample(sample):
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return out, nil
+}

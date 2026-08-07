@@ -11,19 +11,27 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
+
+	"github.com/charmbracelet/x/term"
+	"github.com/creack/pty"
+
+	"github.com/rhizomatous/jardiniere/internal/api"
 )
 
 // Executor runs built invocations. Swapping it is how --dry-run and unit tests
 // avoid a live runtime.
 //
-// The two methods exist because jard needs both shapes: Output for the commands
-// whose result it parses, Attach for the ones the user is sitting in front of.
+// The three methods exist because jard needs three shapes: Output for the
+// commands whose result it parses, Stream for the ones it watches, and Session
+// for the ones a user is sitting in front of.
 type Executor interface {
 	// Output runs inv and returns its stdout.
 	Output(ctx context.Context, inv Invocation) ([]byte, error)
-	// Attach runs inv with the terminal wired straight through and returns its
-	// exit status. A non-zero status is the command's answer, not an error.
-	Attach(ctx context.Context, inv Invocation) (int, error)
+	// Session runs inv with streams wired to its stdio and returns its exit
+	// status. A non-zero status is the command's answer, not an error. tty asks
+	// for a terminal, which the session provides however it must.
+	Session(ctx context.Context, inv Invocation, streams api.Streams, tty bool) (int, error)
 	// Stream runs inv and yields its stdout a line at a time, closing the
 	// channel when the command exits or ctx is cancelled.
 	Stream(ctx context.Context, inv Invocation) (<-chan string, error)
@@ -43,12 +51,76 @@ func (hostExecutor) Output(ctx context.Context, inv Invocation) ([]byte, error) 
 	return out, nil
 }
 
-func (hostExecutor) Attach(ctx context.Context, inv Invocation) (int, error) {
+// Session takes one of two shapes, decided by what it is handed.
+//
+// When stdin is already this process's terminal, the child inherits it and the
+// runtime talks to a real tty with nothing copied in between — the in-process
+// CLI's case, and byte-for-byte what jard did before a daemon existed. When it
+// isn't, and a terminal was asked for, one is allocated here and pumped: the
+// daemon's case, where the terminal is on the far end of a socket and the
+// runtime would otherwise refuse `-t` outright.
+func (hostExecutor) Session(ctx context.Context, inv Invocation, streams api.Streams, tty bool) (int, error) {
 	cmd := exec.CommandContext(ctx, inv.Path, inv.Args...)
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 
-	err := cmd.Run()
-	// an agent exiting non-zero is the agent's business, not a jard failure.
+	if !tty || isTerminal(streams.Stdin) {
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = streams.Stdin, streams.Stdout, streams.Stderr
+		return waitFor(cmd, inv)
+	}
+	return ptySession(cmd, inv, streams)
+}
+
+// ptySession gives the child a pseudo-terminal and relays it to streams.
+func ptySession(cmd *exec.Cmd, inv Invocation, streams api.Streams) (int, error) {
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		return 0, invocationError(inv, nil, err)
+	}
+	defer func() { _ = ptmx.Close() }()
+
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
+	// the child leads its own session with the pty as controlling terminal, so
+	// job control and signals behave as they would in a real one.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
+
+	if err := cmd.Start(); err != nil {
+		_ = tty.Close()
+		return 0, invocationError(inv, nil, err)
+	}
+	// the child holds the slave now. Keeping our copy open would stop reads on
+	// the master from ever seeing the session end.
+	_ = tty.Close()
+
+	go resize(ptmx, streams.Resize)
+	go func() { _, _ = io.Copy(ptmx, streams.Stdin) }()
+
+	// draining before waiting is deliberate: the read ends on its own when the
+	// last writer of the slave goes away, and closing the master first would
+	// throw away whatever the command printed on its way out.
+	_, _ = io.Copy(streams.Stdout, ptmx)
+	return exitStatus(cmd.Wait(), inv)
+}
+
+// resize applies terminal dimensions as they arrive, until the channel closes.
+func resize(ptmx *os.File, sizes <-chan api.Size) {
+	for size := range sizes {
+		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: size.Rows, Cols: size.Cols})
+	}
+}
+
+// isTerminal reports whether r is this process's own terminal, which is the one
+// case where a session needs no pty of its own.
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
+}
+
+func waitFor(cmd *exec.Cmd, inv Invocation) (int, error) {
+	return exitStatus(cmd.Run(), inv)
+}
+
+// exitStatus separates a command that ran and failed from one that could not be
+// run. An agent exiting non-zero is the agent's business, not a jard failure.
+func exitStatus(err error, inv Invocation) (int, error) {
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return exitErr.ExitCode(), nil
@@ -94,7 +166,7 @@ func (d dryRunExecutor) Output(_ context.Context, inv Invocation) ([]byte, error
 	return nil, err
 }
 
-func (d dryRunExecutor) Attach(_ context.Context, inv Invocation) (int, error) {
+func (d dryRunExecutor) Session(_ context.Context, inv Invocation, _ api.Streams, _ bool) (int, error) {
 	_, err := fmt.Fprintln(d.w, inv)
 	return 0, err
 }

@@ -1,4 +1,4 @@
-.PHONY: fmt fmt-check lint test build check release-check
+.PHONY: fmt fmt-check lint test build proto check release-check
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -16,6 +16,13 @@ test:      ## unit tests
 
 build:     ## build the jard binary
 	go build -ldflags "-X main.version=$(VERSION)" -o jard ./cmd/jard
+
+proto:     ## regenerate the daemon's wire contract from jard.proto
+	protoc \
+	  --proto_path=internal/api/rpc/jardv1 \
+	  --go_out=internal/api/rpc/jardv1 --go_opt=paths=source_relative \
+	  --go-grpc_out=internal/api/rpc/jardv1 --go-grpc_opt=paths=source_relative \
+	  internal/api/rpc/jardv1/jard.proto
 
 check: fmt-check lint test ## run every check
 

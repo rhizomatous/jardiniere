@@ -169,8 +169,11 @@ func newExecCmd(g *globals) *cobra.Command {
 				}
 				req.Env[k] = v
 			}
+			streams, stop := hostStreams(req.TTY)
+			defer stop()
+
 			return g.withService(cmd, func(ctx context.Context, svc api.Service) error {
-				res, err := svc.Exec(ctx, api.ByName(args[0]), req)
+				res, err := svc.Exec(ctx, api.ByName(args[0]), req, streams)
 				if err != nil {
 					return err
 				}

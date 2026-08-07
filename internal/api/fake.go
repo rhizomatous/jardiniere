@@ -14,6 +14,9 @@ type Fake struct {
 	Err error
 	// Samples is what Stats replays, in order.
 	Samples []Stats
+	// OnExec, when set, runs in place of the default and is handed the
+	// session's streams, so a test can drive stdio through a real one.
+	OnExec func(ctx context.Context, ref Ref, req ExecRequest, streams Streams) (ExecResult, error)
 	// Calls records method names in the order they were called.
 	Calls []string
 }
@@ -90,12 +93,15 @@ func (f *Fake) Remove(_ context.Context, ref Ref, force bool) error {
 }
 
 // Exec reports a clean exit for any known sandbox.
-func (f *Fake) Exec(_ context.Context, ref Ref, _ ExecRequest) (ExecResult, error) {
+func (f *Fake) Exec(ctx context.Context, ref Ref, req ExecRequest, streams Streams) (ExecResult, error) {
 	if err := f.record("Exec"); err != nil {
 		return ExecResult{}, err
 	}
 	if _, ok := f.find(ref); !ok {
 		return ExecResult{}, ErrNotFound
+	}
+	if f.OnExec != nil {
+		return f.OnExec(ctx, ref, req, streams)
 	}
 	return ExecResult{}, nil
 }

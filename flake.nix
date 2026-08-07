@@ -21,7 +21,7 @@
         pname = "jard";
         inherit version;
         src = ./.;
-        vendorHash = "sha256-fCIF7alu6Hru0Pkk1IRYCRWwvSd/vgnyXxAZh8dAQ84=";
+        vendorHash = "sha256-WVJdBRHqfuWxJ1TjaHru36ghrnIIz3SNqRSRp8/g0ms=";
         subPackages = [ "cmd/jard" ];
         # inject the version into the same symbol the Makefile uses.
         ldflags = [ "-s" "-w" "-X" "main.version=${version}" ];
@@ -53,6 +53,9 @@
             gofumpt # stricter gofmt
             lefthook # git hooks manager
             goreleaser # release build & publish
+            protobuf # protoc, for the daemon's wire contract
+            protoc-gen-go # go message codegen
+            protoc-gen-go-grpc # go service codegen
           ];
           shellHook = ''
             # install the git hooks defined in lefthook.yml

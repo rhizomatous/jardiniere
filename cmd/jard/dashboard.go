@@ -56,11 +56,15 @@ func attachSession(ctx context.Context, svc api.Service, req *tui.AttachRequest)
 	if err := svc.Start(ctx, api.ByName(req.Sandbox)); err != nil {
 		return err
 	}
+	tty := isTerminal(os.Stdin)
+	streams, stop := hostStreams(tty)
+	defer stop()
+
 	_, err := svc.Exec(ctx, api.ByName(req.Sandbox), api.ExecRequest{
 		Cmd:         req.Cmd,
 		Workdir:     req.Workdir,
 		Interactive: true,
-		TTY:         isTerminal(os.Stdin),
-	})
+		TTY:         tty,
+	}, streams)
 	return err
 }

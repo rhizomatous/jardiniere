@@ -79,12 +79,16 @@ func runAgent(
 	}
 	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), ui.RenderAttaching(sb, created))
 
+	tty := isTerminal(os.Stdin)
+	streams, stop := hostStreams(tty)
+	defer stop()
+
 	res, err := svc.Exec(ctx, api.ByName(sb.Spec.Name), api.ExecRequest{
 		Cmd:         append(append([]string{}, def.Command...), passthrough...),
 		Workdir:     sb.Spec.Primary().Host,
 		Interactive: true,
-		TTY:         isTerminal(os.Stdin),
-	})
+		TTY:         tty,
+	}, streams)
 	if err != nil {
 		return err
 	}

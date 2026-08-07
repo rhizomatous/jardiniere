@@ -25,7 +25,7 @@ type Runner interface {
 	Start(ctx context.Context, id ID) error
 	Stop(ctx context.Context, id ID) error
 	Remove(ctx context.Context, id ID, force bool) error
-	Exec(ctx context.Context, id ID, req api.ExecRequest) (api.ExecResult, error)
+	Exec(ctx context.Context, id ID, req api.ExecRequest, streams api.Streams) (api.ExecResult, error)
 	Copy(ctx context.Context, id ID, src, dst api.Path) error
 	Stats(ctx context.Context, id ID) (<-chan api.Stats, error)
 	Inspect(ctx context.Context, id ID) (api.State, error)

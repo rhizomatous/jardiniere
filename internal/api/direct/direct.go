@@ -122,12 +122,12 @@ func (s *Service) Remove(ctx context.Context, ref api.Ref, force bool) error {
 }
 
 // Exec runs a command inside a sandbox.
-func (s *Service) Exec(ctx context.Context, ref api.Ref, req api.ExecRequest) (api.ExecResult, error) {
+func (s *Service) Exec(ctx context.Context, ref api.Ref, req api.ExecRequest, streams api.Streams) (api.ExecResult, error) {
 	sb, err := s.find(ref)
 	if err != nil {
 		return api.ExecResult{}, err
 	}
-	return s.runner.Exec(ctx, containerID(sb), req)
+	return s.runner.Exec(ctx, containerID(sb), req, streams)
 }
 
 // Copy moves files between the host and a sandbox, named by whichever side of

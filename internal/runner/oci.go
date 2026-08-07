@@ -114,8 +114,8 @@ func (o *OCI) Remove(ctx context.Context, id ID, force bool) error {
 
 // Exec runs a command inside a running container, with the terminal wired
 // through so the user can interact with it.
-func (o *OCI) Exec(ctx context.Context, id ID, req api.ExecRequest) (api.ExecResult, error) {
-	code, err := o.exec.Attach(ctx, o.ExecInvocation(id, req))
+func (o *OCI) Exec(ctx context.Context, id ID, req api.ExecRequest, streams api.Streams) (api.ExecResult, error) {
+	code, err := o.exec.Session(ctx, o.ExecInvocation(id, req), streams, req.TTY)
 	if err != nil {
 		return api.ExecResult{}, err
 	}

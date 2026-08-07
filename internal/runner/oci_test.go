@@ -208,7 +208,7 @@ func (s *scriptedExecutor) Output(_ context.Context, inv Invocation) ([]byte, er
 	return s.out, s.err
 }
 
-func (s *scriptedExecutor) Attach(_ context.Context, inv Invocation) (int, error) {
+func (s *scriptedExecutor) Session(_ context.Context, inv Invocation, _ api.Streams, _ bool) (int, error) {
 	s.ran = append(s.ran, inv)
 	return s.code, s.err
 }
@@ -308,7 +308,8 @@ func TestRemoveReportsRealFailures(t *testing.T) {
 func TestExecPropagatesTheExitCode(t *testing.T) {
 	// an agent exiting 3 is the agent's answer, not a jard failure.
 	e := &scriptedExecutor{code: 3}
-	res, err := testOCI(WithExecutor(e)).Exec(context.Background(), "jard-demo", api.ExecRequest{Cmd: []string{"false"}})
+	res, err := testOCI(WithExecutor(e)).Exec(context.Background(), "jard-demo",
+		api.ExecRequest{Cmd: []string{"false"}}, api.Streams{})
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
