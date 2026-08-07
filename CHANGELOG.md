@@ -42,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - ssh-agent forwarding, host git identity injection, and seeding the agent's settings from the host. Nothing is seeded from the host now; a sandbox's contents come from its base image and from what you run inside it.
 - The tinyproxy allowlist sidecar, ahead of host-enforced network policy in a later release.
 
+### Fixed
+
+- `jard rm` now deletes the sandbox's home volume. It had been naming the volume after the container's runtime id rather than the sandbox, and once a sandbox had been started that id is a hash — so the removal quietly succeeded against a volume that never existed, and every removed sandbox left its whole disk behind. If you have used jard before this release, `docker volume ls | grep '^jard-'` will show the orphans; they are safe to delete.
+
 ## [0.3.0] - 2026-08-04
 
 ### Added

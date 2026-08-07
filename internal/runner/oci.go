@@ -96,7 +96,12 @@ func (o *OCI) Stop(ctx context.Context, id ID) error {
 // The two are separate calls on purpose: `rm --volumes` reclaims only the
 // anonymous volumes a container was given, never a named one, so the home
 // volume would otherwise outlive every sandbox that ever used it.
-func (o *OCI) Remove(ctx context.Context, id ID, force bool) error {
+//
+// The volume's name comes from the sandbox's, never from id. Once a sandbox
+// has been started, the id on record is the runtime's own hash, and a volume
+// name derived from that names nothing — the removal then succeeds against
+// something that does not exist and the real volume is left behind.
+func (o *OCI) Remove(ctx context.Context, id ID, sandbox string, force bool) error {
 	args := []string{"rm", "--volumes"}
 	if force {
 		args = append(args, "--force")
@@ -105,8 +110,7 @@ func (o *OCI) Remove(ctx context.Context, id ID, force bool) error {
 		return err
 	}
 
-	vol := HomeVolume(strings.TrimPrefix(string(id), containerPrefix))
-	if _, err := o.exec.Output(ctx, o.invoke("volume", "rm", vol)); err != nil && !isNotFound(err) {
+	if _, err := o.exec.Output(ctx, o.invoke("volume", "rm", HomeVolume(sandbox))); err != nil && !isNotFound(err) {
 		return err
 	}
 	return nil

@@ -255,7 +255,7 @@ func TestDryRunCoversEveryMutation(t *testing.T) {
 	if err := o.Stop(ctx, "jard-demo"); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if err := o.Remove(ctx, "jard-demo", true); err != nil {
+	if err := o.Remove(ctx, "jard-demo", "demo", true); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 
@@ -280,7 +280,7 @@ func TestRemoveDeletesTheHomeVolumeSeparately(t *testing.T) {
 	// `rm --volumes` reclaims only anonymous volumes. The home volume is named,
 	// so without its own call it outlives every sandbox that ever used it.
 	e := &scriptedExecutor{}
-	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err != nil {
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", "demo", false); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 	if len(e.ran) != 2 {
@@ -291,16 +291,35 @@ func TestRemoveDeletesTheHomeVolumeSeparately(t *testing.T) {
 	}
 }
 
+func TestRemoveNamesTheVolumeAfterTheSandboxNotTheContainer(t *testing.T) {
+	// once a sandbox has been started, the id on record is the runtime's own
+	// hash rather than the container's name. A volume name derived from that
+	// names nothing at all: the removal then succeeds against a volume that
+	// does not exist, and the real one is left behind holding the disk.
+	const hash = "5a758d7ed81935e052128081013eef5e14f9f80a5b91bedc3884bf8763602eee"
+
+	e := &scriptedExecutor{}
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), hash, "demo", false); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	if len(e.ran) != 2 {
+		t.Fatalf("ran %d invocations, want the container and the volume", len(e.ran))
+	}
+	if got := strings.Join(e.ran[1].Args, " "); got != "volume rm jard-demo-home" {
+		t.Errorf("second invocation = %q, want the volume named after the sandbox", got)
+	}
+}
+
 func TestRemoveTolerantOfAnAlreadyGoneContainer(t *testing.T) {
 	e := &scriptedExecutor{err: errors.New("Error: No such container: jard-demo")}
-	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err != nil {
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", "demo", false); err != nil {
 		t.Errorf("removing an already-gone sandbox should succeed: %v", err)
 	}
 }
 
 func TestRemoveReportsRealFailures(t *testing.T) {
 	e := &scriptedExecutor{err: errors.New("permission denied")}
-	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", false); err == nil {
+	if err := testOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", "demo", false); err == nil {
 		t.Error("a genuine removal failure must not be swallowed")
 	}
 }

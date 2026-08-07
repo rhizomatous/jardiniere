@@ -51,7 +51,7 @@ func (f *Fake) Stop(_ context.Context, id ID) error {
 }
 
 // Remove drops a container.
-func (f *Fake) Remove(_ context.Context, id ID, _ bool) error {
+func (f *Fake) Remove(_ context.Context, id ID, _ string, _ bool) error {
 	if err := f.record("Remove"); err != nil {
 		return err
 	}

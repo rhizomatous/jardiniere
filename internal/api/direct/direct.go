@@ -115,7 +115,7 @@ func (s *Service) Remove(ctx context.Context, ref api.Ref, force bool) error {
 	if !force && s.observe(ctx, sb).Status == api.StatusRunning {
 		return fmt.Errorf("%q: %w (use --force)", sb.Spec.Name, api.ErrRunning)
 	}
-	if err := s.runner.Remove(ctx, containerID(sb), force); err != nil {
+	if err := s.runner.Remove(ctx, containerID(sb), sb.Spec.Name, force); err != nil {
 		return err
 	}
 	return s.store.Delete(sb.Spec.Name)
