@@ -4,6 +4,8 @@
 
 `docs/next/plan.md` is the plan of record: it describes where each piece is headed, and is the thing to read before adding one.
 
+`docs/concessions.md` records where the plan met reality and lost: what we wanted, what turned out to be true, and what would have to change to get it back. Read it before re-litigating a design that looks wrong — the reasoning and the measurements are already there. Add to it when a requirement forces a design you would not otherwise have chosen.
+
 ## Dev environment
 
 All tooling is provided in Nix dev shell: **work inside it.**
