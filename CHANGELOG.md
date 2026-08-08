@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Host-enforced network policy. A sandbox is alone on a private network with no route out; its only way to reach anything is jard's proxy, which checks every request against a policy set on the host with `jard policy`. An agent that ignores `HTTP_PROXY` gets nowhere — there is no route to ignore it with. Three presets to start from: `balanced` (the default), `open`, and `locked-down`.
+- `jard policy ls`, `allow`, `deny`, `rm`, `check`, `log`, and `preset`. Wildcards are written `*.example.com`, and cover subdomains but not the apex. A deny beats any allow covering the same host.
+- A network panel in the dashboard, on `tab`: everything sandboxes have reached for and what was refused, with `a` to allow the selected host and `d` to deny it. The next request goes through with nothing restarted.
+- Private, loopback, and link-local addresses are never reachable, whatever the policy says — including a hostname that resolves into them.
 - A background daemon, `jardd`, which owns sandbox state and lifecycle. It starts on its own the first time a command needs it, so there is nothing to set up. `jard daemon start`, `stop`, and `status` are there for when you want to drive it deliberately.
 - A dashboard, which `jard` with no arguments now opens: every sandbox, its status, and live CPU and memory for the running ones. `c` creates one, `i` shows its details, `enter` attaches the agent, `x` opens a shell, `s` starts or stops, `r` removes, `?` lists the bindings.
 - Persistent sandboxes. `jard run` in a directory creates one the first time and reattaches to it every time after, with the packages, shell history, and agent state you left behind still in place.

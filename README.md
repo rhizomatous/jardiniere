@@ -116,12 +116,15 @@ Run `jard` with no arguments and you get a dashboard instead: every sandbox, its
 | key | |
 | --- | --- |
 | `↑` `↓` / `k` `j` | move |
+| `tab` | switch between sandboxes and network |
 | `i` | show the selected sandbox's details |
 | `c` | create a sandbox |
 | `enter` | attach the agent |
 | `x` | open a shell |
 | `s` | start or stop |
 | `r` | remove |
+| `a` | allow the selected host (network panel) |
+| `d` | deny the selected host (network panel) |
 | `?` | show every binding |
 | `q` | quit |
 
@@ -129,7 +132,38 @@ Run `jard` with no arguments and you get a dashboard instead: every sandbox, its
 
 Attaching leaves the dashboard and hands the terminal to the agent, the same as `jard run` would. When the session ends you're back at the dashboard.
 
+`tab` switches to the network panel: everything sandboxes have reached for, and what was refused. Selecting a denied host and pressing `a` allows it — the next request goes through, with nothing restarted. That loop, from a blocked agent to a working one without leaving the dashboard, is the reason the panel exists.
+
 Piped or run from a script, `jard` prints the `ls` table rather than trying to draw a dashboard into something that isn't a terminal.
+
+## network policy
+
+A sandbox has no route to the internet. It sits alone on a private network whose only other occupant forwards to jard's proxy, and the proxy decides every request against a policy you set on the host. An agent that ignores `HTTP_PROXY` entirely does not get out; there is no route to ignore it with.
+
+Policy is set with `jard policy` and nowhere else, so a repository cannot ask for its own permissions.
+
+```sh
+jard policy ls                    # the preset, and the rules over it
+jard policy allow example.com     # every port on that host
+jard policy allow '*.example.com' # subdomains, but not example.com itself
+jard policy deny tracker.example  # a deny beats any allow covering the same host
+jard policy check example.com     # what would happen, without connecting
+jard policy log --denied          # what has been refused
+```
+
+You pick a starting posture the first time jard needs one:
+
+| preset | |
+| --- | --- |
+| `balanced` | package registries, source hosts, and model providers. Everything else denied. The default. |
+| `open` | everything reachable, nothing filtered |
+| `locked-down` | nothing until you allow it, model providers included |
+
+`jard policy preset NAME` changes it later. Your own rules survive the change — a preset carries its own allowances rather than copying them into your policy.
+
+Private, loopback, and link-local addresses are never reachable, whatever the policy says. No rule can grant a sandbox the host's own network, another sandbox, or a cloud metadata endpoint.
+
+Changes take effect on the next connection. Nothing needs restarting.
 
 ### workspaces
 

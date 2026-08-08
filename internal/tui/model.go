@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // refreshEvery is how often the sandbox list is re-read. Status changes are the
@@ -33,6 +34,14 @@ type Model struct {
 	// showDetail opens the pane under the list, which follows the cursor rather
 	// than pinning to the sandbox that was selected when it opened.
 	showDetail bool
+	// panel is which half of the dashboard has the keyboard.
+	panel panel
+	// connections is what the proxy has decided, newest last.
+	connections []proxy.Entry
+	// connCursor is the selected decision, and connSeq the newest one already
+	// seen — the feed is polled, so it asks only for what is new.
+	connCursor int
+	connSeq    uint64
 	err        error
 	// now measures the detail pane's ages, so tests can pin them.
 	now func() time.Time
@@ -66,6 +75,21 @@ func New(svc api.Service) *Model {
 // Attach reports the session the dashboard exited to run, if any.
 func (m *Model) Attach() *AttachRequest { return m.attach }
 
+// panel names the two halves of the dashboard.
+type panel int
+
+const (
+	// sandboxPanel is the list of sandboxes.
+	sandboxPanel panel = iota
+	// networkPanel is the connection log, where a denial can be allowed.
+	networkPanel
+)
+
+// connectionsEvery is how often the decision feed is re-read. Faster than the
+// sandbox listing: a denial that shows up a beat after the agent stalled is
+// the one thing this panel is for.
+const connectionsEvery = 700 * time.Millisecond
+
 // message types the dashboard sends itself.
 type (
 	// sandboxesMsg is a fresh listing.
@@ -83,17 +107,43 @@ type (
 	}
 	// tickMsg asks for another listing.
 	tickMsg time.Time
+	// connectionsMsg is a batch of decisions newer than what we had.
+	connectionsMsg []proxy.Entry
+	// connTickMsg asks for another batch.
+	connTickMsg time.Time
+	// ruleMsg is the outcome of allowing or denying from the panel.
+	ruleMsg struct {
+		pattern string
+		allow   bool
+		err     error
+	}
 	// errMsg is a failure with nowhere better to go.
 	errMsg struct{ err error }
 )
 
 // Init starts the first listing and the refresh loop.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.list(), tick())
+	return tea.Batch(m.list(), tick(), m.readConnections(), connTick())
 }
 
 func tick() tea.Cmd {
 	return tea.Tick(refreshEvery, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+func connTick() tea.Cmd {
+	return tea.Tick(connectionsEvery, func(t time.Time) tea.Msg { return connTickMsg(t) })
+}
+
+// readConnections asks for decisions newer than the last one seen.
+func (m *Model) readConnections() tea.Cmd {
+	since := m.connSeq
+	return func() tea.Msg {
+		entries, err := m.svc.Connections(context.Background(), since)
+		if err != nil {
+			return nil // a daemon without a proxy simply has nothing to say
+		}
+		return connectionsMsg(entries)
+	}
 }
 
 // list re-reads the sandboxes.
@@ -130,6 +180,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		return m, tea.Batch(m.list(), tick())
+
+	case connTickMsg:
+		return m, tea.Batch(m.readConnections(), connTick())
+
+	case connectionsMsg:
+		m.appendConnections(msg)
+		return m, nil
+
+	case ruleMsg:
+		m.pending = ""
+		verb := "denied"
+		if msg.allow {
+			verb = "allowed"
+		}
+		if msg.err != nil {
+			m.status = verb + " " + msg.pattern + ": " + msg.err.Error()
+		} else {
+			m.status = verb + " " + msg.pattern
+		}
+		return m, nil
 
 	case errMsg:
 		m.err = msg.err
@@ -247,4 +317,65 @@ func (m *Model) selectedName() string {
 		return sb.Spec.Name
 	}
 	return ""
+}
+
+// appendConnections adds a batch, keeping the cursor on what it was looking at
+// and the buffer bounded.
+func (m *Model) appendConnections(batch []proxy.Entry) {
+	if len(batch) == 0 {
+		return
+	}
+	selected := m.selectedConnection()
+	m.connections = append(m.connections, batch...)
+	m.connSeq = m.connections[len(m.connections)-1].Seq
+
+	if excess := len(m.connections) - connectionLimit; excess > 0 {
+		m.connections = append(m.connections[:0], m.connections[excess:]...)
+	}
+	m.restoreConnCursor(selected)
+}
+
+// connectionLimit is how many decisions the dashboard holds. The daemon keeps
+// more; this is only what can be scrolled.
+const connectionLimit = 200
+
+// restoreConnCursor keeps the cursor on the same decision as entries arrive
+// beneath it, so a denial does not slide away while being read.
+func (m *Model) restoreConnCursor(seq uint64) {
+	if seq != 0 {
+		for i, e := range m.connections {
+			if e.Seq == seq {
+				m.connCursor = i
+				return
+			}
+		}
+	}
+	// nothing was selected, or it aged out: follow the newest.
+	m.connCursor = len(m.connections) - 1
+	m.clampConnCursor()
+}
+
+func (m *Model) clampConnCursor() {
+	if m.connCursor >= len(m.connections) {
+		m.connCursor = len(m.connections) - 1
+	}
+	if m.connCursor < 0 {
+		m.connCursor = 0
+	}
+}
+
+// selectedConnection returns the sequence under the cursor, or zero.
+func (m *Model) selectedConnection() uint64 {
+	if m.connCursor < 0 || m.connCursor >= len(m.connections) {
+		return 0
+	}
+	return m.connections[m.connCursor].Seq
+}
+
+// selectedEntry returns the decision under the cursor, and whether there is one.
+func (m *Model) selectedEntry() (proxy.Entry, bool) {
+	if m.connCursor < 0 || m.connCursor >= len(m.connections) {
+		return proxy.Entry{}, false
+	}
+	return m.connections[m.connCursor], true
 }

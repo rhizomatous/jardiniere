@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // sandbox builds a listing entry.
@@ -500,3 +501,164 @@ func TestHelpListsEveryBinding(t *testing.T) {
 
 // lipglossWidth measures a styled string in terminal cells.
 func lipglossWidth(s string) int { return lipgloss.Width(s) }
+
+// decision builds a proxy decision for the network panel.
+func decision(seq uint64, host string, allowed bool) proxy.Entry {
+	reason := "denied by default"
+	if allowed {
+		reason = "allowed by rule " + host
+	}
+	return proxy.Entry{
+		Seq:     seq,
+		At:      time.Now(),
+		Target:  proxy.Target{Host: host, Port: 443},
+		Allowed: allowed,
+		Reason:  reason,
+		Sandbox: "web",
+	}
+}
+
+// networked returns a model showing the network panel, loaded with decisions.
+func networked(t *testing.T, fake *api.Fake) *Model {
+	t.Helper()
+	m := loaded(t, fake, fake.Sandboxes...)
+	next, _ := m.Update(connectionsMsg(fake.Decisions))
+	m = next.(*Model)
+	return press(t, m, "tab")
+}
+
+func TestTabSwitchesPanels(t *testing.T) {
+	m := loaded(t, api.NewFake(), sandbox("a", api.StatusRunning))
+	if m.panel != sandboxPanel {
+		t.Fatal("the dashboard should open on the sandbox list")
+	}
+	m = press(t, m, "tab")
+	if m.panel != networkPanel {
+		t.Error("tab should reach the network panel")
+	}
+	m = press(t, m, "tab")
+	if m.panel != sandboxPanel {
+		t.Error("tab should come back")
+	}
+}
+
+func TestNetworkPanelShowsDecisions(t *testing.T) {
+	fake := api.NewFake()
+	fake.Decisions = []proxy.Entry{decision(1, "ok.test", true), decision(2, "no.test", false)}
+
+	out := view(networked(t, fake))
+	for _, want := range []string{"ok.test:443", "no.test:443", "web", "denied by default"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("panel missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestDeniedCountIsOnTheTab(t *testing.T) {
+	// the count is what makes the panel worth switching to without looking.
+	fake := api.NewFake()
+	fake.Decisions = []proxy.Entry{decision(1, "ok.test", true), decision(2, "no.test", false)}
+
+	m := loaded(t, fake, sandbox("a", api.StatusRunning))
+	next, _ := m.Update(connectionsMsg(fake.Decisions))
+	if out := view(next.(*Model)); !strings.Contains(out, "1 denied") {
+		t.Errorf("the sandbox view should carry the denial count:\n%s", out)
+	}
+}
+
+func TestAllowFromThePanelWritesARule(t *testing.T) {
+	// the loop this panel exists for: a denial on screen, one key, fixed.
+	fake := api.NewFake()
+	fake.NetworkPolicy = &proxy.Policy{Preset: proxy.PresetBalanced}
+	fake.Decisions = []proxy.Entry{decision(1, "blocked.test", false)}
+
+	m := networked(t, fake)
+	m = press(t, m, "a")
+
+	if fake.NetworkPolicy == nil || len(fake.NetworkPolicy.Rules) != 1 {
+		t.Fatalf("policy = %+v, want one rule", fake.NetworkPolicy)
+	}
+	rule := fake.NetworkPolicy.Rules[0]
+	if !rule.Allow || rule.Pattern != "blocked.test" {
+		t.Errorf("rule = %+v, want an allow for the host", rule)
+	}
+	// pinning the port would leave the same host blocked on 80, which reads
+	// as the allow having silently not worked.
+	if strings.Contains(rule.Pattern, ":") {
+		t.Errorf("rule %q should name the host without its port", rule.Pattern)
+	}
+	if !strings.Contains(view(m), "allowed blocked.test") {
+		t.Errorf("the outcome should be shown:\n%s", view(m))
+	}
+}
+
+func TestDenyFromThePanelWritesARule(t *testing.T) {
+	fake := api.NewFake()
+	fake.NetworkPolicy = &proxy.Policy{Preset: proxy.PresetOpen}
+	fake.Decisions = []proxy.Entry{decision(1, "sketchy.test", true)}
+
+	m := networked(t, fake)
+	_ = press(t, m, "d")
+
+	if len(fake.NetworkPolicy.Rules) != 1 || fake.NetworkPolicy.Rules[0].Allow {
+		t.Errorf("rules = %+v, want a deny", fake.NetworkPolicy.Rules)
+	}
+}
+
+func TestAllowingSomethingPreviouslyDeniedReplacesTheRule(t *testing.T) {
+	// the deny would otherwise keep winning and the keystroke would appear to
+	// have done nothing.
+	fake := api.NewFake()
+	fake.NetworkPolicy = &proxy.Policy{
+		Preset: proxy.PresetBalanced,
+		Rules:  []proxy.Rule{{Pattern: "x.test"}},
+	}
+	fake.Decisions = []proxy.Entry{decision(1, "x.test", false)}
+
+	m := networked(t, fake)
+	_ = press(t, m, "a")
+
+	if len(fake.NetworkPolicy.Rules) != 1 {
+		t.Fatalf("rules = %+v, want the deny replaced", fake.NetworkPolicy.Rules)
+	}
+	if v := fake.NetworkPolicy.Check(proxy.Target{Host: "x.test", Port: 443}); !v.Allowed {
+		t.Errorf("x.test still denied after allowing it: %s", v.Reason)
+	}
+}
+
+func TestPanelKeysDoNotLeakIntoTheSandboxList(t *testing.T) {
+	// `a` and `d` belong to the network panel; on the list they must not act.
+	fake := api.NewFake(sandbox("a", api.StatusStopped))
+	fake.NetworkPolicy = &proxy.Policy{Preset: proxy.PresetBalanced}
+	m := loaded(t, fake, fake.Sandboxes...)
+
+	_ = press(t, m, "a")
+	_ = press(t, m, "d")
+	if len(fake.NetworkPolicy.Rules) != 0 {
+		t.Errorf("the sandbox list wrote a policy rule: %+v", fake.NetworkPolicy.Rules)
+	}
+}
+
+func TestConnectionCursorStaysPutAsEntriesArrive(t *testing.T) {
+	// a denial should not slide away while it is being read.
+	fake := api.NewFake()
+	fake.Decisions = []proxy.Entry{decision(1, "a.test", false), decision(2, "b.test", false)}
+
+	m := networked(t, fake)
+	m = press(t, m, "up")
+	selected := m.selectedConnection()
+
+	next, _ := m.Update(connectionsMsg([]proxy.Entry{decision(3, "c.test", false)}))
+	m = next.(*Model)
+
+	if m.selectedConnection() != selected {
+		t.Errorf("the cursor moved to %d, want it left on %d", m.selectedConnection(), selected)
+	}
+}
+
+func TestEmptyNetworkPanelSaysSo(t *testing.T) {
+	m := press(t, loaded(t, api.NewFake(), sandbox("a", api.StatusRunning)), "tab")
+	if !strings.Contains(view(m), "nothing has tried") {
+		t.Errorf("an empty panel should say so:\n%s", view(m))
+	}
+}

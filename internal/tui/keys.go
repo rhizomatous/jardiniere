@@ -3,10 +3,12 @@ package tui
 import (
 	"context"
 	"errors"
+	"slices"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // Key is one binding, as the help panel lists it.
@@ -18,12 +20,15 @@ type Key struct {
 // Keys are the dashboard's bindings, in the order `?` shows them.
 var Keys = []Key{
 	{Keys: []string{"↑/k", "↓/j"}, Help: "move"},
+	{Keys: []string{"tab"}, Help: "switch between sandboxes and network"},
 	{Keys: []string{"i"}, Help: "details"},
 	{Keys: []string{"c"}, Help: "create a sandbox"},
 	{Keys: []string{"enter"}, Help: "attach the agent"},
 	{Keys: []string{"x"}, Help: "shell"},
 	{Keys: []string{"s"}, Help: "start / stop"},
 	{Keys: []string{"r"}, Help: "remove"},
+	{Keys: []string{"a"}, Help: "allow the selected host (network)"},
+	{Keys: []string{"d"}, Help: "deny the selected host (network)"},
 	{Keys: []string{"?"}, Help: "help"},
 	{Keys: []string{"q"}, Help: "quit"},
 }
@@ -43,9 +48,20 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "i":
 		m.showDetail = !m.showDetail
 		return m, nil
+	case "tab":
+		if m.panel == sandboxPanel {
+			m.panel = networkPanel
+		} else {
+			m.panel = sandboxPanel
+		}
+		return m, nil
 	}
 	if m.pending != "" {
 		return m, nil
+	}
+
+	if m.panel == networkPanel {
+		return m.handleNetworkKey(msg)
 	}
 
 	switch msg.String() {
@@ -154,5 +170,62 @@ func (m *Model) removeSelected() tea.Cmd {
 			return actionMsg{verb: "not removed", name: name, err: errors.New("stop it first")}
 		}
 		return actionMsg{verb: "removed", name: name, err: err}
+	}
+}
+
+// handleNetworkKey drives the connection panel.
+//
+// The whole point of the panel is the loop from a denial to a rule: the agent
+// stalls, the reason is on screen, and one keystroke fixes it without leaving
+// the dashboard or restarting anything.
+func (m *Model) handleNetworkKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		m.connCursor--
+		m.clampConnCursor()
+	case "down", "j":
+		m.connCursor++
+		m.clampConnCursor()
+	case "g", "home":
+		m.connCursor = 0
+	case "G", "end":
+		m.connCursor = len(m.connections) - 1
+		m.clampConnCursor()
+	case "a":
+		return m, m.ruleForSelected(true)
+	case "d":
+		return m, m.ruleForSelected(false)
+	}
+	return m, nil
+}
+
+// ruleForSelected writes a rule for the host under the cursor.
+//
+// The rule names the host without its port. A denial usually arrives on 443
+// and pinning that would leave the same host blocked on 80, which reads as the
+// allow having silently not worked.
+func (m *Model) ruleForSelected(allow bool) tea.Cmd {
+	entry, ok := m.selectedEntry()
+	if !ok {
+		return nil
+	}
+	pattern := entry.Target.Host
+	m.pending = pattern
+
+	return func() tea.Msg {
+		ctx := context.Background()
+		policy, err := m.svc.Policy(ctx)
+		if err != nil {
+			return ruleMsg{pattern: pattern, allow: allow, err: err}
+		}
+		// replace any rule already holding this host, so allowing something
+		// previously denied is not undone by the deny that is still there.
+		policy.Rules = slices.DeleteFunc(policy.Rules, func(r proxy.Rule) bool {
+			return r.Pattern == pattern
+		})
+		policy.Rules = append(policy.Rules, proxy.Rule{Pattern: pattern, Allow: allow})
+
+		err = m.svc.SetPolicy(ctx, policy)
+		return ruleMsg{pattern: pattern, allow: allow, err: err}
 	}
 }

@@ -2,12 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 	"github.com/rhizomatous/jardiniere/internal/ui"
 )
 
@@ -44,6 +46,18 @@ func (m *Model) render() string {
 	if m.create != nil {
 		b.WriteString(m.create.form.View())
 		b.WriteString("\n" + ui.Faint.Render("esc cancel"))
+		return b.String()
+	}
+
+	b.WriteString(m.renderTabs())
+	b.WriteString("\n\n")
+
+	if m.panel == networkPanel {
+		b.WriteString(m.renderConnections())
+		if m.status != "" {
+			b.WriteString("\n\n" + ui.Faint.Render(m.status))
+		}
+		b.WriteString("\n\n" + m.renderFooter())
 		return b.String()
 	}
 
@@ -163,10 +177,91 @@ func memLabel(s api.Stats) string {
 	return api.FormatBytes(s.MemoryBytes) + " / " + api.FormatBytes(s.MemoryLimit)
 }
 
+// renderTabs names the two panels and marks which has the keyboard.
+func (m *Model) renderTabs() string {
+	sandboxes, network := "sandboxes", "network"
+	if m.panel == networkPanel {
+		if denied := m.deniedCount(); denied > 0 {
+			// a count on the tab is what makes the panel worth switching to
+			// without having to look first.
+			network += " (" + strconv.Itoa(denied) + " denied)"
+		}
+		return ui.Faint.Render(sandboxes) + "   " + selectedStyle.Render(network)
+	}
+	if denied := m.deniedCount(); denied > 0 {
+		network += " (" + strconv.Itoa(denied) + " denied)"
+	}
+	return selectedStyle.Render(sandboxes) + "   " + ui.Faint.Render(network)
+}
+
+// deniedCount is how many of the held decisions were refusals.
+func (m *Model) deniedCount() int {
+	var n int
+	for _, e := range m.connections {
+		if !e.Allowed {
+			n++
+		}
+	}
+	return n
+}
+
+// renderConnections draws the network panel: what has been reached for, and
+// what was refused.
+func (m *Model) renderConnections() string {
+	if len(m.connections) == 0 {
+		return ui.Faint.Render("nothing has tried to reach out yet")
+	}
+
+	// show the tail, newest last, so the most recent decision is nearest the
+	// footer where the eye already is.
+	rows := make([]string, 0, len(m.connections))
+	for i, e := range m.connections {
+		rows = append(rows, m.renderConnectionRow(e, i == m.connCursor))
+	}
+	if visible := m.connectionRows(); len(rows) > visible {
+		rows = rows[len(rows)-visible:]
+	}
+	return strings.Join(rows, "\n")
+}
+
+// connectionRows is how many rows fit above the footer.
+func (m *Model) connectionRows() int {
+	if m.height <= 0 {
+		return 15
+	}
+	// title, tabs, blanks, status, footer.
+	if n := m.height - 8; n > 0 {
+		return n
+	}
+	return 1
+}
+
+func (m *Model) renderConnectionRow(e proxy.Entry, selected bool) string {
+	marker := "  "
+	if selected {
+		marker = cursorStyle.Render("▸ ")
+	}
+
+	verdict := ui.OK.Render("✓")
+	if !e.Allowed {
+		verdict = ui.Bad.Render("✗")
+	}
+
+	target := e.Target.String()
+	if selected {
+		target = selectedStyle.Render(target)
+	}
+	line := marker + verdict + " " + pad(target, 34) + " " + ui.Faint.Render(pad(dash(e.Sandbox), 12))
+	return line + " " + ui.Faint.Render(e.Reason)
+}
+
 // renderFooter shows either the full key list or a one-line reminder.
 func (m *Model) renderFooter() string {
 	if !m.showHelp {
-		return ui.Faint.Render("↑/↓ move · i details · c create · enter attach · x shell · s start/stop · r remove · ? help · q quit")
+		if m.panel == networkPanel {
+			return ui.Faint.Render("↑/↓ move · a allow · d deny · tab sandboxes · ? help · q quit")
+		}
+		return ui.Faint.Render("↑/↓ move · tab network · i details · c create · enter attach · x shell · s start/stop · r remove · ? help · q quit")
 	}
 	lines := make([]string, 0, len(Keys))
 	for _, k := range Keys {

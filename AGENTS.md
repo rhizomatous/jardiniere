@@ -27,12 +27,14 @@ All tooling is provided in Nix dev shell: **work inside it.**
 
 - `cmd/jard`: the CLI (cobra + fang). The `main` package.
 - `cmd/jardd`: the daemon. A second `main` package, plain `flag`, no fang.
+- `cmd/jard-relay`: the egress relay that runs inside the runtime. Tiny, static, and deliberately incurious.
 - `internal/api`: the `Service` interface and its types.
 - `internal/api/direct`: in-process implementation of `Service`.
 - `internal/api/rpc`: the same `Service` over gRPC — client, server, and the generated contract in `jardv1`. Regenerate with `make proto`.
 - `internal/daemon`: socket lifecycle, autostart, and connecting to a running daemon.
 - `internal/store`: sandbox specs + state, on disk, XDG-respecting.
 - `internal/runner`: the `Runner` interface, runtime detection, and the OCI adapter.
+- `internal/proxy`: the egress policy engine, the filtering proxy, and the connection log. The engine is pure.
 - `internal/tui`: the bubbletea dashboard, which bare `jard` opens.
 - `internal/ui`: Charm-based terminal output.
 - `images/`: one multi-stage Dockerfile, a build target per agent, published to ghcr.
@@ -62,6 +64,19 @@ the daemon normally, in-process for `--dry-run` and `--state-dir`.
 - **A pty has no EOF to deliver.** Its slave stays open after whatever feeds
   the master is spent, so a command reading to EOF never finishes. This is why
   the CLI asks for a tty only when stdin actually is one.
+- **A sandbox reaches the proxy through a relay, not directly.** An internal
+  network cannot reach the host on macOS, where containers live in the
+  runtime's own VM. `docs/concessions.md` has the measurements and what would
+  remove the need for it.
+- **Egress control is off when no proxy address is configured.** That is what
+  keeps `--dry-run` and the in-process path rendering what they always did;
+  neither has a daemon holding a proxy to point at.
+- **A preset carries its own allowances; `Policy.Rules` is only what a person
+  added.** Copying a preset's hosts into Rules makes switching preset a no-op,
+  because the old preset's list comes along with it.
+- **Every api sentinel needs its own gRPC code.** Decoding takes the first
+  entry whose code matches, so two sharing one silently hands callers the wrong
+  error — with the right message, which is what makes it hard to see.
 - **A character-device check is not a terminal check.** `/dev/null` is a character device. Use `term.IsTerminal`, or a redirected command will claim a TTY it doesn't have.
 - **Don't drive the TUI by feeding keys to `tea.Run` in tests.** It races the program's startup and produces tests that sometimes wait for a deadline. Call `Model.Update` directly; `run_test.go` covers only that the loop starts and stops.
 
