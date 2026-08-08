@@ -7,6 +7,11 @@
 #
 #   docker build --target claude -t jard-claude images/
 #
+# the relay target is the exception: it is not a sandbox image, and it builds
+# from the repository root rather than from images/.
+#
+#   docker build --target relay -t jard-relay -f images/Dockerfile .
+#
 # the base contract, matching Docker's sbx so third-party images are portable:
 # Ubuntu, a non-root `agent` at UID 1000, passwordless sudo, proxy environment
 # preserved across sudo, and the agent's own binary baked in.
@@ -113,3 +118,20 @@ FROM base AS opencode
 RUN npm install -g --prefix /usr/local opencode-ai && opencode --version
 USER agent
 WORKDIR /home/agent
+
+
+# the relay is not a sandbox image. It carries a sandbox's egress to the proxy
+# on the host, because a sandbox on an internal network has no route there
+# itself. Static, scratch-based, and holding nothing but the forwarder: it is
+# on the network path, so it should have the smallest surface we can give it.
+FROM golang:1.26-alpine AS relay-build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}" -o /out/jard-relay ./cmd/jard-relay
+
+FROM scratch AS relay
+COPY --from=relay-build /out/jard-relay /jard-relay
+ENTRYPOINT ["/jard-relay"]

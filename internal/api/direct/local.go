@@ -21,6 +21,13 @@ type Options struct {
 	DryRunOut io.Writer
 	// ConnectionLog is the proxy's record, when a proxy is running alongside.
 	ConnectionLog *proxy.Log
+	// EgressProxy is where a sandbox's traffic ends up, as the relay running
+	// inside the runtime can reach it. Empty leaves sandboxes on the runtime's
+	// default network with no egress control, which is what --dry-run and the
+	// in-process path want: neither has a daemon holding a proxy.
+	EgressProxy string
+	// RelayImage overrides the published relay.
+	RelayImage string
 }
 
 // Open assembles a service against the local store and container runtime. It
@@ -44,6 +51,9 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 
 	detect := runner.Detect
 	var runnerOpts []runner.Option
+	if opts.EgressProxy != "" {
+		runnerOpts = append(runnerOpts, runner.WithEgress(opts.EgressProxy, opts.RelayImage))
+	}
 	if opts.DryRun {
 		detect = runner.DetectInstalled
 		out := opts.DryRunOut

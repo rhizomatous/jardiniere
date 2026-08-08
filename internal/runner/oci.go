@@ -31,6 +31,21 @@ var idle = []string{"sleep", "infinity"}
 type OCI struct {
 	rt   Runtime
 	exec Executor
+	// egressUpstream is the host proxy a sandbox's traffic ends up at. Empty
+	// means egress control is off: no private network, no relay, and no proxy
+	// environment. That is the --dry-run and in-process case, where there is
+	// no daemon holding a proxy to point at.
+	egressUpstream string
+	relayImage     string
+}
+
+// WithEgress routes sandboxes through the proxy at upstream, over a private
+// network and the relay. relayImage may be empty for the published default.
+func WithEgress(upstream, relayImage string) Option {
+	return func(o *OCI) {
+		o.egressUpstream = upstream
+		o.relayImage = relayImage
+	}
 }
 
 var _ Runner = (*OCI)(nil)
@@ -68,6 +83,13 @@ func HomeVolume(sandbox string) string { return containerPrefix + sandbox + "-ho
 
 // Create builds the container without starting it.
 func (o *OCI) Create(ctx context.Context, spec api.Spec) (ID, error) {
+	// the network comes first: the container is created onto it, and a create
+	// naming a network that does not exist fails outright.
+	if o.egressUpstream != "" {
+		if err := o.EnsureNetwork(ctx, spec.Name); err != nil {
+			return "", err
+		}
+	}
 	if _, err := o.exec.Output(ctx, o.CreateInvocation(spec)); err != nil {
 		return "", err
 	}
@@ -77,7 +99,17 @@ func (o *OCI) Create(ctx context.Context, spec api.Spec) (ID, error) {
 }
 
 // Start boots a created or stopped container.
+//
+// The relay is ensured on every start, not once: it is shared between
+// sandboxes, and one removed by hand would otherwise leave the next sandbox
+// with no way out and nothing said about why.
 func (o *OCI) Start(ctx context.Context, id ID) error {
+	if o.egressUpstream != "" {
+		sandbox := strings.TrimPrefix(string(id), containerPrefix)
+		if err := o.EnsureRelay(ctx, sandbox, o.relayImage, o.egressUpstream); err != nil {
+			return err
+		}
+	}
 	_, err := o.exec.Output(ctx, o.invoke("start", string(id)))
 	return err
 }
@@ -112,6 +144,13 @@ func (o *OCI) Remove(ctx context.Context, id ID, sandbox string, force bool) err
 
 	if _, err := o.exec.Output(ctx, o.invoke("volume", "rm", HomeVolume(sandbox))); err != nil && !isNotFound(err) {
 		return err
+	}
+	// the network goes last: it cannot be removed while anything is still
+	// attached to it.
+	if o.egressUpstream != "" {
+		if err := o.RemoveNetwork(ctx, sandbox); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -255,9 +294,17 @@ func (o *OCI) CreateInvocation(spec api.Spec) Invocation {
 		args = append(args, "--memory", strconv.FormatInt(spec.Resources.Memory, 10))
 	}
 
+	// the sandbox is alone on a network with no route out. Its only company
+	// is the relay, and the proxy environment is what points at it.
+	env := spec.Env
+	if o.egressUpstream != "" {
+		args = append(args, "--network", SandboxNetwork(spec.Name))
+		env = withProxyEnv(env, spec.Name)
+	}
+
 	// map order is random; sort so the rendered command is stable.
-	for _, k := range sortedKeys(spec.Env) {
-		args = append(args, "--env", k+"="+spec.Env[k])
+	for _, k := range sortedKeys(env) {
+		args = append(args, "--env", k+"="+env[k])
 	}
 	for _, p := range spec.Ports {
 		args = append(args, "--publish", publishSpec(p))
@@ -370,4 +417,19 @@ func publishSpec(p api.Port) string {
 // sortedKeys returns m's keys in a stable order.
 func sortedKeys(m map[string]string) []string {
 	return slices.Sorted(maps.Keys(m))
+}
+
+// withProxyEnv layers jard's proxy variables over a spec's own.
+//
+// jard's win. The point of the proxy is that a sandbox cannot choose its own
+// way out, and a spec that could set HTTP_PROXY could choose one.
+func withProxyEnv(env map[string]string, sandbox string) map[string]string {
+	merged := make(map[string]string, len(env)+6)
+	for k, v := range env {
+		merged[k] = v
+	}
+	for k, v := range ProxyEnv(sandbox) {
+		merged[k] = v
+	}
+	return merged
 }

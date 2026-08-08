@@ -33,6 +33,9 @@ type Options struct {
 	// reached from a sandbox through the relay, and binding it wider would
 	// offer the whole LAN a way out through this machine.
 	ProxyAddr string
+	// RelayImage overrides the published relay, for testing against one built
+	// locally.
+	RelayImage string
 	// Ready, when set, is called once the daemon is listening. Tests use it to
 	// learn when it is safe to connect.
 	Ready func()
@@ -78,6 +81,8 @@ func Serve(ctx context.Context, opts Options) error {
 	svc, err := direct.Open(ctx, direct.Options{
 		StateDir:      opts.StateDir,
 		ConnectionLog: connections,
+		EgressProxy:   relayUpstream(ProxyAddress(opts)),
+		RelayImage:    opts.RelayImage,
 	})
 	if err != nil {
 		return err
@@ -238,3 +243,21 @@ func ProxyAddress(opts Options) string {
 	}
 	return DefaultProxyAddr
 }
+
+// relayUpstream rewrites the proxy's listen address into one the relay can
+// reach it at.
+//
+// The proxy binds loopback, which means something entirely different inside the
+// runtime: there, loopback is the container's own. The runtime publishes the
+// host under a name of its own, and that is what the relay has to dial.
+func relayUpstream(listen string) string {
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return listen
+	}
+	return net.JoinHostPort(runtimeHostAlias, port)
+}
+
+// runtimeHostAlias is what a container calls the machine the runtime runs on.
+// Docker Desktop, OrbStack, and podman all publish this name.
+const runtimeHostAlias = "host.docker.internal"

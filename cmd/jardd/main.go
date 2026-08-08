@@ -31,11 +31,13 @@ func run() int {
 		socket      string
 		stateDir    string
 		proxyAddr   string
+		relayImage  string
 		showVersion bool
 	)
 	flag.StringVar(&socket, "socket", "", "unix socket to listen on (default: the runtime directory)")
 	flag.StringVar(&stateDir, "state-dir", "", "where sandbox records are kept (default: XDG data dir)")
 	flag.StringVar(&proxyAddr, "proxy", "", "address the egress proxy listens on (default: "+daemon.DefaultProxyAddr+")")
+	flag.StringVar(&relayImage, "relay-image", "", "override the egress relay image")
 	flag.BoolVar(&showVersion, "version", false, "print the version and exit")
 	flag.Parse()
 
@@ -60,9 +62,10 @@ func run() int {
 	defer stop()
 
 	opts := daemon.Options{
-		Socket:    socket,
-		StateDir:  stateDir,
-		ProxyAddr: proxyAddr,
+		Socket:     socket,
+		StateDir:   stateDir,
+		ProxyAddr:  proxyAddr,
+		RelayImage: relayImage,
 	}
 	opts.Ready = func() {
 		ui.Log.Info("jardd listening", "socket", socket, "proxy", daemon.ProxyAddress(opts))

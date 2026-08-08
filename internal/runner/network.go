@@ -1,0 +1,189 @@
+package runner
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+)
+
+// Sandboxes reach the outside through one narrow path and no other.
+//
+// Each sandbox gets its own internal network: no route off the host, and no
+// route to another sandbox. The only thing else on it is the relay, which is
+// attached to every sandbox network and to one ordinary network of its own, and
+// which forwards to the proxy on the host and nowhere else.
+//
+// The relay exists because an internal network cannot reach the host at all on
+// macOS, where containers live inside the runtime's own VM. See
+// docs/concessions.md.
+const (
+	// relayName is the shared relay container. One serves every sandbox: it
+	// forwards to a single fixed address, so it grants nothing that being on
+	// its network does not already grant.
+	relayName = "jard-relay"
+	// relayEgressNet is the ordinary network the relay reaches the host from.
+	relayEgressNet = "jard-egress"
+	// RelayPort is where the relay accepts a sandbox's connections.
+	RelayPort = 8080
+	// DefaultRelayImage is the published relay. It holds a single static
+	// binary on an empty base.
+	DefaultRelayImage = "ghcr.io/rhizomatous/jard-relay:latest"
+)
+
+// SandboxNetwork is the internal network a sandbox is alone on.
+func SandboxNetwork(sandbox string) string { return containerPrefix + sandbox + "-net" }
+
+// ProxyEnv is what a sandbox is told about its way out.
+//
+// The address is the relay's name on the sandbox's own network, which the
+// runtime's embedded DNS resolves without any egress of its own. NO_PROXY keeps
+// loopback direct, so a service the agent runs and then curls does not take a
+// trip through the proxy to reach itself.
+//
+// The sandbox's name rides along as a proxy credential, which is how the
+// connection log can say who asked. It is a label and not a secret: the policy
+// is host-side and identical for every sandbox, so the name grants nothing and
+// proves nothing.
+func ProxyEnv(sandbox string) map[string]string {
+	addr := "http://" + url.UserPassword(sandbox, "x").String() + "@" + relayName + ":" + strconv.Itoa(RelayPort)
+	return map[string]string{
+		"HTTP_PROXY":  addr,
+		"HTTPS_PROXY": addr,
+		"http_proxy":  addr,
+		"https_proxy": addr,
+		"NO_PROXY":    "localhost,127.0.0.1,::1",
+		"no_proxy":    "localhost,127.0.0.1,::1",
+	}
+}
+
+// CreateNetworkInvocation renders the command creating a sandbox's network.
+func (o *OCI) CreateNetworkInvocation(sandbox string) Invocation {
+	return o.invoke("network", "create", "--internal",
+		"--label", "jard.sandbox="+sandbox, SandboxNetwork(sandbox))
+}
+
+// RemoveNetworkInvocation renders the command removing it.
+func (o *OCI) RemoveNetworkInvocation(sandbox string) Invocation {
+	return o.invoke("network", "rm", SandboxNetwork(sandbox))
+}
+
+// EnsureNetwork creates a sandbox's network, tolerating one that already
+// exists — a sandbox that is being recreated keeps the same name.
+func (o *OCI) EnsureNetwork(ctx context.Context, sandbox string) error {
+	_, err := o.exec.Output(ctx, o.CreateNetworkInvocation(sandbox))
+	if err != nil && !isAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+// RemoveNetwork drops a sandbox's network, tolerating one already gone.
+func (o *OCI) RemoveNetwork(ctx context.Context, sandbox string) error {
+	_, err := o.exec.Output(ctx, o.RemoveNetworkInvocation(sandbox))
+	if err != nil && !isNotFound(err) {
+		return err
+	}
+	return nil
+}
+
+// EnsureRelay brings the relay up if it is not already, and attaches it to a
+// sandbox's network.
+//
+// Called on every start rather than once: the relay is shared, and a sandbox
+// starting after the relay was removed by hand would otherwise have no way out
+// with nothing to say about why.
+func (o *OCI) EnsureRelay(ctx context.Context, sandbox, image, upstream string) error {
+	if image == "" {
+		image = DefaultRelayImage
+	}
+	if err := o.ensureEgressNetwork(ctx); err != nil {
+		return err
+	}
+
+	running, err := o.relayRunning(ctx)
+	if err != nil {
+		return err
+	}
+	if !running {
+		if err := o.startRelay(ctx, image, upstream); err != nil {
+			return err
+		}
+	}
+
+	// attaching an already-attached container is not an error worth raising.
+	_, err = o.exec.Output(ctx, o.invoke("network", "connect", SandboxNetwork(sandbox), relayName))
+	if err != nil && !isAlreadyExists(err) && !isAlreadyConnected(err) {
+		return fmt.Errorf("attaching the relay to %s: %w", SandboxNetwork(sandbox), err)
+	}
+	return nil
+}
+
+func (o *OCI) ensureEgressNetwork(ctx context.Context) error {
+	_, err := o.exec.Output(ctx, o.invoke("network", "create", relayEgressNet))
+	if err != nil && !isAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+// relayRunning reports whether the relay container is up.
+func (o *OCI) relayRunning(ctx context.Context) (bool, error) {
+	out, err := o.exec.Output(ctx, o.invoke("inspect", "--type", "container",
+		"--format", "{{.State.Running}}", relayName))
+	if err != nil {
+		if isNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) == "true", nil
+}
+
+// startRelay removes any stopped relay and runs a fresh one.
+//
+// Replacing rather than restarting keeps the upstream address current: it is
+// baked into the container's arguments, and a daemon that moved would
+// otherwise be talking to a relay still pointed at where it used to be.
+func (o *OCI) startRelay(ctx context.Context, image, upstream string) error {
+	if _, err := o.exec.Output(ctx, o.invoke("rm", "--force", relayName)); err != nil && !isNotFound(err) {
+		return err
+	}
+	_, err := o.exec.Output(ctx, o.RelayInvocation(image, upstream))
+	return err
+}
+
+// RelayInvocation renders the command that runs the relay.
+func (o *OCI) RelayInvocation(image, upstream string) Invocation {
+	return o.invoke(
+		"run", "--detach",
+		"--name", relayName,
+		"--label", "jard.relay=true",
+		"--restart", "unless-stopped",
+		"--network", relayEgressNet,
+		image,
+		"-listen", ":"+strconv.Itoa(RelayPort),
+		"-upstream", upstream,
+	)
+}
+
+// isAlreadyExists reports whether err is a runtime refusing to create
+// something twice. Matched on the message, as the runtimes offer no
+// distinguishable status: docker says "already exists", podman "already used".
+func isAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "already exists") || strings.Contains(msg, "already used")
+}
+
+// isAlreadyConnected reports whether err is a runtime refusing to attach a
+// container to a network it is already on.
+func isAlreadyConnected(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "already exists in network")
+}

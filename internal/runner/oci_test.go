@@ -422,3 +422,105 @@ func TestUnavailableFailsEveryOperation(t *testing.T) {
 		t.Errorf("Inspect err = %v, want the detection error", err)
 	}
 }
+
+// testEgressOCI is a runner with egress control turned on.
+func testEgressOCI(opts ...Option) *OCI {
+	return testOCI(append([]Option{WithEgress("host.docker.internal:47821", "jard-relay:test")}, opts...)...)
+}
+
+func TestCreateInvocationPutsTheSandboxOnItsOwnNetwork(t *testing.T) {
+	inv := testEgressOCI().CreateInvocation(api.Spec{Name: "demo", Image: "base:1"})
+
+	net, ok := argsAfter(inv.Args, "--network")
+	if !ok || net != "jard-demo-net" {
+		t.Errorf("--network = %q, want the sandbox's own network", net)
+	}
+}
+
+func TestCreateInvocationTellsTheSandboxItsWayOut(t *testing.T) {
+	inv := testEgressOCI().CreateInvocation(api.Spec{Name: "demo", Image: "base:1"})
+
+	env := strings.Join(allAfter(inv.Args, "--env"), " ")
+	for _, want := range []string{"HTTP_PROXY=", "HTTPS_PROXY=", "jard-relay:8080", "NO_PROXY="} {
+		if !strings.Contains(env, want) {
+			t.Errorf("env %q missing %q", env, want)
+		}
+	}
+	// the sandbox's name rides along, so the connection log can say who asked.
+	if !strings.Contains(env, "demo:x@") {
+		t.Errorf("env %q should carry the sandbox name as a proxy credential", env)
+	}
+}
+
+func TestEgressEnvOverridesWhateverTheSpecAsksFor(t *testing.T) {
+	// the point of the proxy is that a sandbox cannot choose its own way out,
+	// and a spec that could set HTTP_PROXY could choose one.
+	inv := testEgressOCI().CreateInvocation(api.Spec{
+		Name:  "demo",
+		Image: "base:1",
+		Env:   map[string]string{"HTTP_PROXY": "http://somewhere.else:3128"},
+	})
+
+	env := strings.Join(allAfter(inv.Args, "--env"), " ")
+	if strings.Contains(env, "somewhere.else") {
+		t.Errorf("a spec talked its way past the proxy: %q", env)
+	}
+}
+
+func TestWithoutEgressNothingChanges(t *testing.T) {
+	// --dry-run and the in-process path have no daemon holding a proxy, so
+	// they must render exactly what they did before egress control existed.
+	inv := testOCI().CreateInvocation(api.Spec{Name: "demo", Image: "base:1"})
+
+	if _, ok := argsAfter(inv.Args, "--network"); ok {
+		t.Error("no network should be named when egress control is off")
+	}
+	if env := strings.Join(allAfter(inv.Args, "--env"), " "); strings.Contains(env, "PROXY") {
+		t.Errorf("no proxy environment should be set: %q", env)
+	}
+}
+
+func TestSandboxNetworkIsInternal(t *testing.T) {
+	// "internal" is the whole guarantee: without it the sandbox has a route
+	// out that never passes the proxy.
+	inv := testEgressOCI().CreateNetworkInvocation("demo")
+	joined := strings.Join(inv.Args, " ")
+	if !strings.Contains(joined, "--internal") {
+		t.Errorf("network create %q must be internal", joined)
+	}
+	if !strings.HasSuffix(joined, "jard-demo-net") {
+		t.Errorf("network create %q should name the sandbox's network", joined)
+	}
+}
+
+func TestRelayIsGivenOneAddressAndNoMore(t *testing.T) {
+	inv := testEgressOCI().RelayInvocation("jard-relay:test", "host.docker.internal:47821")
+	joined := strings.Join(inv.Args, " ")
+
+	if !strings.Contains(joined, "-upstream host.docker.internal:47821") {
+		t.Errorf("relay %q should forward to the host proxy", joined)
+	}
+	if strings.Contains(joined, "--publish") {
+		t.Errorf("relay %q must publish no ports: it is reached over the sandbox network", joined)
+	}
+	if strings.Contains(joined, "--privileged") {
+		t.Errorf("relay %q must not be privileged", joined)
+	}
+}
+
+func TestRemoveDropsTheNetworkToo(t *testing.T) {
+	// a network per sandbox leaks one per sandbox otherwise.
+	e := &scriptedExecutor{}
+	if err := testEgressOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", "demo", false); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	var sawNetworkRm bool
+	for _, inv := range e.ran {
+		if strings.HasPrefix(strings.Join(inv.Args, " "), "network rm jard-demo-net") {
+			sawNetworkRm = true
+		}
+	}
+	if !sawNetworkRm {
+		t.Errorf("no network removal among %d invocations", len(e.ran))
+	}
+}
