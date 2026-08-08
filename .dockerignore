@@ -1,0 +1,12 @@
+# the relay builds from the repository root, so everything here would otherwise
+# be sent to the daemon and would bust its cache on changes it does not use.
+.git
+.github
+.direnv
+docs
+images
+result
+jard
+jardd
+jard-relay
+*.md

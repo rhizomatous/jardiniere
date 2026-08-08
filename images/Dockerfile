@@ -124,13 +124,19 @@ WORKDIR /home/agent
 # on the host, because a sandbox on an internal network has no route there
 # itself. Static, scratch-based, and holding nothing but the forwarder: it is
 # on the network path, so it should have the smallest surface we can give it.
-FROM golang:1.26-alpine AS relay-build
+# pinned to the build machine's own architecture, with the target passed in:
+# Go cross-compiles in a second, where building arm64 under emulation takes
+# minutes for the same result.
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS relay-build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}" -o /out/jard-relay ./cmd/jard-relay
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags "-s -w -X main.version=${VERSION}" -o /out/jard-relay ./cmd/jard-relay
 
 FROM scratch AS relay
 COPY --from=relay-build /out/jard-relay /jard-relay
