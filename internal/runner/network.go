@@ -80,9 +80,18 @@ func (o *OCI) EnsureNetwork(ctx context.Context, sandbox string) error {
 }
 
 // RemoveNetwork drops a sandbox's network, tolerating one already gone.
+//
+// The relay is detached first. It is attached to every sandbox's network, and
+// a runtime refuses to remove a network that still has endpoints on it — so
+// without this, removing any sandbox fails once egress control is on, and
+// fails after the container is already gone.
 func (o *OCI) RemoveNetwork(ctx context.Context, sandbox string) error {
-	_, err := o.exec.Output(ctx, o.RemoveNetworkInvocation(sandbox))
-	if err != nil && !isNotFound(err) {
+	_, err := o.exec.Output(ctx, o.invoke("network", "disconnect", "--force",
+		SandboxNetwork(sandbox), relayName))
+	if err != nil && !isNotFound(err) && !isNotConnected(err) {
+		return err
+	}
+	if _, err := o.exec.Output(ctx, o.RemoveNetworkInvocation(sandbox)); err != nil && !isNotFound(err) {
 		return err
 	}
 	return nil
@@ -177,6 +186,16 @@ func isAlreadyExists(err error) bool {
 	}
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "already exists") || strings.Contains(msg, "already used")
+}
+
+// isNotConnected reports whether err is a runtime declining to detach a
+// container from a network it was never on.
+func isNotConnected(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "is not connected") || strings.Contains(msg, "not connected to network")
 }
 
 // isAlreadyConnected reports whether err is a runtime refusing to attach a

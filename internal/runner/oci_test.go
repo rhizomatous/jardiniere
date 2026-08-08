@@ -524,3 +524,34 @@ func TestRemoveDropsTheNetworkToo(t *testing.T) {
 		t.Errorf("no network removal among %d invocations", len(e.ran))
 	}
 }
+
+func TestRemoveDetachesTheRelayBeforeDroppingTheNetwork(t *testing.T) {
+	// the relay is attached to every sandbox's network, and a runtime refuses
+	// to remove a network that still has endpoints. Without the detach, every
+	// removal fails — and fails after the container is already gone, leaving a
+	// record for a sandbox that no longer exists.
+	e := &scriptedExecutor{}
+	if err := testEgressOCI(WithExecutor(e)).Remove(context.Background(), "jard-demo", "demo", false); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+
+	disconnect, remove := -1, -1
+	for i, inv := range e.ran {
+		joined := strings.Join(inv.Args, " ")
+		if strings.HasPrefix(joined, "network disconnect") {
+			disconnect = i
+		}
+		if strings.HasPrefix(joined, "network rm") {
+			remove = i
+		}
+	}
+	if disconnect < 0 {
+		t.Fatal("the relay was never detached")
+	}
+	if remove < 0 {
+		t.Fatal("the network was never removed")
+	}
+	if disconnect > remove {
+		t.Error("the detach must come before the removal, or the removal fails")
+	}
+}

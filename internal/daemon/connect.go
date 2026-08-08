@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -120,6 +121,12 @@ func waitForSocket(ctx context.Context, socket, logPath string) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
+			// the daemon writes why it gave up before it dies, and a message
+			// pointing at a log file leaves the reason one step away from
+			// someone who is already stuck.
+			if reason := lastLogLine(logPath); reason != "" {
+				return fmt.Errorf("the jard daemon did not start: %s", reason)
+			}
 			return fmt.Errorf("the jard daemon did not come up within %s; see %s", startTimeout, logPath)
 		}
 		select {
@@ -180,4 +187,20 @@ func findDaemon() (string, error) {
 		return "", fmt.Errorf("cannot find %s, which jard needs to run sandboxes: %w", binaryName, err)
 	}
 	return path, nil
+}
+
+// lastLogLine reads the final non-empty line of the daemon's log, which is
+// where a daemon that failed to start says so.
+func lastLogLine(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			return line
+		}
+	}
+	return ""
 }
