@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"slices"
+
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // Fake is an in-memory [Service] for testing the CLI and the TUI without a
@@ -19,6 +21,10 @@ type Fake struct {
 	OnExec func(ctx context.Context, ref Ref, req ExecRequest, streams Streams) (ExecResult, error)
 	// Calls records method names in the order they were called.
 	Calls []string
+	// NetworkPolicy is what Policy reports. Nil means none has been set.
+	NetworkPolicy *proxy.Policy
+	// Decisions is what Connections replays.
+	Decisions []proxy.Entry
 }
 
 var _ Service = (*Fake)(nil)
@@ -164,4 +170,38 @@ func (f *Fake) find(ref Ref) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// Policy returns the fake's policy, or ErrNoPolicy when none was set.
+func (f *Fake) Policy(context.Context) (proxy.Policy, error) {
+	if err := f.record("Policy"); err != nil {
+		return proxy.Policy{}, err
+	}
+	if f.NetworkPolicy == nil {
+		return proxy.Policy{}, ErrNoPolicy
+	}
+	return *f.NetworkPolicy, nil
+}
+
+// SetPolicy replaces the fake's policy.
+func (f *Fake) SetPolicy(_ context.Context, p proxy.Policy) error {
+	if err := f.record("SetPolicy"); err != nil {
+		return err
+	}
+	f.NetworkPolicy = &p
+	return nil
+}
+
+// Connections returns the fake's recorded decisions after since.
+func (f *Fake) Connections(_ context.Context, since uint64) ([]proxy.Entry, error) {
+	if err := f.record("Connections"); err != nil {
+		return nil, err
+	}
+	out := make([]proxy.Entry, 0, len(f.Decisions))
+	for _, e := range f.Decisions {
+		if e.Seq > since {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }

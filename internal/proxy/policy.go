@@ -96,8 +96,12 @@ type Verdict struct {
 // Order is deliberate. Private space is refused before any rule is consulted,
 // so no policy can hand a sandbox the host's own network. Then deny rules,
 // which beat allow rules however they were written — a denial anyone bothered
-// to express should not be undone by a broader allow sitting next to it.
-// Then allow rules, then the preset's default.
+// to express should not be undone by a broader allow sitting next to it. Then
+// allow rules, then whatever the preset permits on its own.
+//
+// A rule therefore beats the preset in both directions: denying something the
+// balanced preset allows works, and so does allowing something under
+// locked-down.
 func (p Policy) Check(t Target) Verdict {
 	if addr, err := netip.ParseAddr(t.Host); err == nil && !AllowsAddress(addr) {
 		return Verdict{Reason: "private, loopback, and link-local addresses are never reachable"}
@@ -112,6 +116,9 @@ func (p Policy) Check(t Target) Verdict {
 
 	if p.Preset == PresetOpen {
 		return Verdict{Allowed: true, Reason: "the open preset allows everything"}
+	}
+	if pattern, ok := p.Preset.Allows(t); ok {
+		return Verdict{Allowed: true, Reason: "allowed by the " + string(p.Preset) + " preset (" + pattern + ")"}
 	}
 	return Verdict{Reason: "not allowed by any rule, and the " + string(p.Preset) + " preset denies by default"}
 }

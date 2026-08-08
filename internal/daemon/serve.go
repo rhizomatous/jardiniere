@@ -5,16 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/rhizomatous/jardiniere/internal/api/direct"
 	"github.com/rhizomatous/jardiniere/internal/api/rpc"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // ErrAlreadyRunning means a daemon is already listening on the socket.
@@ -26,10 +29,21 @@ type Options struct {
 	Socket string
 	// StateDir overrides where the daemon keeps sandbox records.
 	StateDir string
+	// ProxyAddr is where the egress proxy listens. Loopback by default: it is
+	// reached from a sandbox through the relay, and binding it wider would
+	// offer the whole LAN a way out through this machine.
+	ProxyAddr string
 	// Ready, when set, is called once the daemon is listening. Tests use it to
 	// learn when it is safe to connect.
 	Ready func()
 }
+
+// DefaultProxyAddr is where the egress proxy listens unless told otherwise.
+//
+// A fixed port rather than an ephemeral one: a sandbox is given its proxy
+// address when it is created, and that address has to still be right after the
+// daemon restarts.
+const DefaultProxyAddr = "127.0.0.1:47821"
 
 // Serve runs the daemon until ctx is cancelled.
 //
@@ -55,10 +69,29 @@ func Serve(ctx context.Context, opts Options) error {
 		return fmt.Errorf("clearing a stale socket: %w", err)
 	}
 
-	// the pidfile goes down before the listener, so that anything which finds
-	// the socket answering can rely on the record being there. Written after,
-	// it would race every client that connects and immediately asks who is
-	// serving.
+	// everything the daemon needs is stood up before the socket is, because
+	// the socket is what tells the world it is ready. Bound first, a daemon
+	// that then fails to start its proxy would spend its last moments
+	// accepting connections it is about to drop — which is what a client sees
+	// as an unexplained EOF rather than as the error that actually happened.
+	connections := proxy.NewLog(0)
+	svc, err := direct.Open(ctx, direct.Options{
+		StateDir:      opts.StateDir,
+		ConnectionLog: connections,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = svc.Close() }()
+
+	stopProxy, err := serveProxy(ctx, opts.ProxyAddr, svc, connections)
+	if err != nil {
+		return err
+	}
+	defer stopProxy()
+
+	// the pidfile still goes down before the listener, so anything that finds
+	// the socket answering can rely on the record being there.
 	if err := writePid(opts); err != nil {
 		return err
 	}
@@ -76,13 +109,6 @@ func Serve(ctx context.Context, opts Options) error {
 		_ = lis.Close()
 		return fmt.Errorf("securing %s: %w", socket, err)
 	}
-
-	svc, err := direct.Open(ctx, direct.Options{StateDir: opts.StateDir})
-	if err != nil {
-		_ = lis.Close()
-		return err
-	}
-	defer func() { _ = svc.Close() }()
 
 	server := grpc.NewServer()
 	rpc.NewServer(svc).Register(server)
@@ -165,4 +191,50 @@ func pidPathFor(opts Options) (string, error) {
 // replaceBase swaps a path's filename, keeping its directory.
 func replaceBase(path, name string) string {
 	return filepath.Join(filepath.Dir(path), name)
+}
+
+// serveProxy starts the egress proxy and returns a function that stops it.
+//
+// The policy is read from the service per request rather than captured, so
+// `jard policy allow` reaches every sandbox on its next connection.
+func serveProxy(ctx context.Context, addr string, svc *direct.Service, log *proxy.Log) (func(), error) {
+	if addr == "" {
+		addr = DefaultProxyAddr
+	}
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listening for sandbox egress on %s: %w", addr, err)
+	}
+
+	handler := proxy.NewServer(func() proxy.Policy {
+		p, err := svc.Policy(ctx)
+		if err != nil {
+			// no policy chosen yet, or a store we could not read. Balanced is
+			// the documented default and denies by default, so the failure
+			// mode is a sandbox that cannot reach something rather than one
+			// that can reach everything.
+			return proxy.New(proxy.PresetBalanced)
+		}
+		return p
+	}, proxy.WithLog(log))
+
+	srv := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 30 * time.Second,
+	}
+	go func() { _ = srv.Serve(lis) }()
+
+	return func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdown)
+	}, nil
+}
+
+// ProxyAddress reports where a daemon's egress proxy listens.
+func ProxyAddress(opts Options) string {
+	if opts.ProxyAddr != "" {
+		return opts.ProxyAddr
+	}
+	return DefaultProxyAddr
 }

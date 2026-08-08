@@ -12,6 +12,7 @@ import (
 
 	"github.com/rhizomatous/jardiniere/internal/api"
 	"github.com/rhizomatous/jardiniere/internal/api/rpc/jardv1"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // The conversions come in pairs: protoX renders a domain value for the wire,
@@ -179,4 +180,49 @@ func apiTime(ts *timestamppb.Timestamp) time.Time {
 		return time.Time{}
 	}
 	return ts.AsTime()
+}
+
+func protoPolicy(p proxy.Policy) *jardv1.Policy {
+	out := &jardv1.Policy{Preset: string(p.Preset)}
+	for _, r := range p.Rules {
+		out.Rules = append(out.Rules, &jardv1.Rule{Pattern: r.Pattern, Allow: r.Allow})
+	}
+	return out
+}
+
+func apiPolicy(p *jardv1.Policy) proxy.Policy {
+	if p == nil {
+		return proxy.Policy{}
+	}
+	out := proxy.Policy{Preset: proxy.Preset(p.GetPreset())}
+	for _, r := range p.GetRules() {
+		out.Rules = append(out.Rules, proxy.Rule{Pattern: r.GetPattern(), Allow: r.GetAllow()})
+	}
+	return out
+}
+
+func protoDecision(e proxy.Entry) *jardv1.Decision {
+	return &jardv1.Decision{
+		Seq:     e.Seq,
+		At:      protoTime(e.At),
+		Host:    e.Target.Host,
+		Port:    int32(e.Target.Port),
+		Allowed: e.Allowed,
+		Reason:  e.Reason,
+		Sandbox: e.Sandbox,
+	}
+}
+
+func apiDecision(d *jardv1.Decision) proxy.Entry {
+	if d == nil {
+		return proxy.Entry{}
+	}
+	return proxy.Entry{
+		Seq:     d.GetSeq(),
+		At:      apiTime(d.GetAt()),
+		Target:  proxy.Target{Host: d.GetHost(), Port: int(d.GetPort())},
+		Allowed: d.GetAllowed(),
+		Reason:  d.GetReason(),
+		Sandbox: d.GetSandbox(),
+	}
 }

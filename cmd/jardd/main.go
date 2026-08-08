@@ -30,10 +30,12 @@ func run() int {
 	var (
 		socket      string
 		stateDir    string
+		proxyAddr   string
 		showVersion bool
 	)
 	flag.StringVar(&socket, "socket", "", "unix socket to listen on (default: the runtime directory)")
 	flag.StringVar(&stateDir, "state-dir", "", "where sandbox records are kept (default: XDG data dir)")
+	flag.StringVar(&proxyAddr, "proxy", "", "address the egress proxy listens on (default: "+daemon.DefaultProxyAddr+")")
 	flag.BoolVar(&showVersion, "version", false, "print the version and exit")
 	flag.Parse()
 
@@ -57,11 +59,16 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	err := daemon.Serve(ctx, daemon.Options{
-		Socket:   socket,
-		StateDir: stateDir,
-		Ready:    func() { ui.Log.Info("jardd listening", "socket", socket) },
-	})
+	opts := daemon.Options{
+		Socket:    socket,
+		StateDir:  stateDir,
+		ProxyAddr: proxyAddr,
+	}
+	opts.Ready = func() {
+		ui.Log.Info("jardd listening", "socket", socket, "proxy", daemon.ProxyAddress(opts))
+	}
+
+	err := daemon.Serve(ctx, opts)
 	switch {
 	case err == nil:
 		return 0

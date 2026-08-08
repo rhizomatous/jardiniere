@@ -90,6 +90,7 @@ func newRootCmd(opts ...rootOption) *cobra.Command {
 		newCpCmd(g),
 		newAgentsCmd(g),
 		newDaemonCmd(g),
+		newPolicyCmd(g),
 	)
 
 	for _, opt := range opts {

@@ -106,3 +106,33 @@ func (s *Server) Stats(req *jardv1.StatsRequest, stream grpc.ServerStreamingServ
 	}
 	return wireError(ctx.Err())
 }
+
+// GetPolicy returns the host's egress policy.
+func (s *Server) GetPolicy(ctx context.Context, _ *jardv1.GetPolicyRequest) (*jardv1.GetPolicyResponse, error) {
+	p, err := s.svc.Policy(ctx)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	return &jardv1.GetPolicyResponse{Policy: protoPolicy(p)}, nil
+}
+
+// SetPolicy replaces the host's egress policy.
+func (s *Server) SetPolicy(ctx context.Context, req *jardv1.SetPolicyRequest) (*jardv1.SetPolicyResponse, error) {
+	if err := s.svc.SetPolicy(ctx, apiPolicy(req.GetPolicy())); err != nil {
+		return nil, wireError(err)
+	}
+	return &jardv1.SetPolicyResponse{}, nil
+}
+
+// Connections returns the proxy's decisions newer than the caller's sequence.
+func (s *Server) Connections(ctx context.Context, req *jardv1.ConnectionsRequest) (*jardv1.ConnectionsResponse, error) {
+	entries, err := s.svc.Connections(ctx, req.GetSince())
+	if err != nil {
+		return nil, wireError(err)
+	}
+	resp := &jardv1.ConnectionsResponse{Decisions: make([]*jardv1.Decision, 0, len(entries))}
+	for _, e := range entries {
+		resp.Decisions = append(resp.Decisions, protoDecision(e))
+	}
+	return resp, nil
+}

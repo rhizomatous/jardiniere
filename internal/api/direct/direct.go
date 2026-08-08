@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 	"github.com/rhizomatous/jardiniere/internal/runner"
 	"github.com/rhizomatous/jardiniere/internal/store"
 )
@@ -18,6 +19,14 @@ type Service struct {
 	store  *store.Store
 	runner runner.Runner
 	now    func() time.Time
+	// log is the proxy's record of what it decided, when a proxy is running.
+	log *proxy.Log
+}
+
+// WithConnectionLog gives the service the proxy's log to read. The daemon
+// passes the same one it hands the proxy.
+func WithConnectionLog(l *proxy.Log) Option {
+	return func(s *Service) { s.log = l }
 }
 
 var _ api.Service = (*Service)(nil)
@@ -200,4 +209,29 @@ func containerID(sb api.Sandbox) runner.ID {
 		return runner.ID(sb.State.ContainerID)
 	}
 	return runner.ID(runner.ContainerName(sb.Spec.Name))
+}
+
+// Policy returns the host's egress policy.
+func (s *Service) Policy(context.Context) (proxy.Policy, error) {
+	p, err := s.store.Policy()
+	if errors.Is(err, store.ErrNoPolicy) {
+		return proxy.Policy{}, api.ErrNoPolicy
+	}
+	return p, err
+}
+
+// SetPolicy replaces the host's egress policy.
+func (s *Service) SetPolicy(_ context.Context, p proxy.Policy) error {
+	return s.store.SetPolicy(p)
+}
+
+// Connections returns the proxy's decisions recorded after since.
+//
+// A service with no proxy behind it reports none rather than failing: the
+// in-process path serves --dry-run and --state-dir, neither of which has one.
+func (s *Service) Connections(_ context.Context, since uint64) ([]proxy.Entry, error) {
+	if s.log == nil {
+		return nil, nil
+	}
+	return s.log.Since(since), nil
 }

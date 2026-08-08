@@ -27,7 +27,48 @@ service Sandboxes {
   // client's first frame must be a Start; the daemon owns the session, which
   // is what lets it hold a pty and what the SSH gateway will attach to.
   rpc Exec(stream ExecClientFrame) returns (stream ExecServerFrame);
+
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
+  rpc SetPolicy(SetPolicyRequest) returns (SetPolicyResponse);
+
+  // Connections returns what the proxy decided, newer than a sequence the
+  // caller already has. Polled rather than streamed: the dashboard re-reads on
+  // a tick anyway, and this costs the daemon no subscription per viewer.
+  rpc Connections(ConnectionsRequest) returns (ConnectionsResponse);
 }
+
+// Policy is the host's egress policy: a preset, plus the rules over it.
+message Policy {
+  string preset = 1;
+  repeated Rule rules = 2;
+}
+
+// Rule is one policy entry. Pattern is a host, optionally with a port, and may
+// lead with "*." to cover subdomains.
+message Rule {
+  string pattern = 1;
+  bool allow = 2;
+}
+
+// Decision is one thing the proxy let through or refused.
+message Decision {
+  uint64 seq = 1;
+  google.protobuf.Timestamp at = 2;
+  string host = 3;
+  int32 port = 4;
+  bool allowed = 5;
+  string reason = 6;
+  string sandbox = 7;
+}
+
+message GetPolicyRequest {}
+message GetPolicyResponse { Policy policy = 1; }
+
+message SetPolicyRequest { Policy policy = 1; }
+message SetPolicyResponse {}
+
+message ConnectionsRequest { uint64 since = 1; }
+message ConnectionsResponse { repeated Decision decisions = 1; }
 
 // Spec is a sandbox's durable definition, fixed when it is created.
 message Spec {

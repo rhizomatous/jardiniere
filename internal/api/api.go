@@ -11,6 +11,8 @@ import (
 	"errors"
 	"io"
 	"time"
+
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // sentinel errors callers are expected to match with errors.Is.
@@ -23,6 +25,9 @@ var (
 	ErrRunning = errors.New("sandbox is running")
 	// ErrNotImplemented marks surface that is declared but not yet built.
 	ErrNotImplemented = errors.New("not implemented")
+	// ErrNoPolicy means no egress policy has been chosen yet, which is how a
+	// first run knows to ask.
+	ErrNoPolicy = errors.New("no network policy has been set")
 )
 
 // Service is everything jard can do to a sandbox.
@@ -48,6 +53,15 @@ type Service interface {
 	// Stats streams resource samples for a running sandbox until it stops or
 	// ctx is cancelled. Callers must drain the channel or cancel ctx.
 	Stats(ctx context.Context, ref Ref) (<-chan Stats, error)
+	// Policy returns the host's egress policy, or ErrNoPolicy when none has
+	// been chosen yet.
+	Policy(ctx context.Context) (proxy.Policy, error)
+	// SetPolicy replaces the host's egress policy. It applies to every
+	// sandbox from the next connection onward.
+	SetPolicy(ctx context.Context, p proxy.Policy) error
+	// Connections returns the proxy's decisions recorded after since. Passing
+	// zero returns everything still held.
+	Connections(ctx context.Context, since uint64) ([]proxy.Entry, error)
 	// Close releases whatever the implementation holds open.
 	Close() error
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/rhizomatous/jardiniere/internal/api"
 	"github.com/rhizomatous/jardiniere/internal/api/rpc/jardv1"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // Client is an [api.Service] backed by a daemon on the other end of a unix
@@ -122,4 +123,32 @@ func (c *Client) Stats(ctx context.Context, ref api.Ref) (<-chan api.Stats, erro
 		}
 	}()
 	return out, nil
+}
+
+// Policy returns the host's egress policy.
+func (c *Client) Policy(ctx context.Context) (proxy.Policy, error) {
+	resp, err := c.svc.GetPolicy(ctx, &jardv1.GetPolicyRequest{})
+	if err != nil {
+		return proxy.Policy{}, localError(err)
+	}
+	return apiPolicy(resp.GetPolicy()), nil
+}
+
+// SetPolicy replaces the host's egress policy.
+func (c *Client) SetPolicy(ctx context.Context, p proxy.Policy) error {
+	_, err := c.svc.SetPolicy(ctx, &jardv1.SetPolicyRequest{Policy: protoPolicy(p)})
+	return localError(err)
+}
+
+// Connections returns the proxy's decisions newer than since.
+func (c *Client) Connections(ctx context.Context, since uint64) ([]proxy.Entry, error) {
+	resp, err := c.svc.Connections(ctx, &jardv1.ConnectionsRequest{Since: since})
+	if err != nil {
+		return nil, localError(err)
+	}
+	entries := make([]proxy.Entry, 0, len(resp.GetDecisions()))
+	for _, d := range resp.GetDecisions() {
+		entries = append(entries, apiDecision(d))
+	}
+	return entries, nil
 }

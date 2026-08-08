@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime"
 
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 	"github.com/rhizomatous/jardiniere/internal/runner"
 	"github.com/rhizomatous/jardiniere/internal/store"
 )
@@ -18,6 +19,8 @@ type Options struct {
 	DryRun bool
 	// DryRunOut receives rendered invocations. Defaults to io.Discard.
 	DryRunOut io.Writer
+	// ConnectionLog is the proxy's record, when a proxy is running alongside.
+	ConnectionLog *proxy.Log
 }
 
 // Open assembles a service against the local store and container runtime. It
@@ -50,6 +53,11 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 		runnerOpts = append(runnerOpts, runner.WithDryRun(out))
 	}
 
+	var serviceOpts []Option
+	if opts.ConnectionLog != nil {
+		serviceOpts = append(serviceOpts, WithConnectionLog(opts.ConnectionLog))
+	}
+
 	// a runtime we can't reach isn't necessarily fatal. hand back a runner that fails every
 	// call with this error, so a failure only surfaces on the first command that needs a runner.
 	rt, err := detect(ctx)
@@ -61,7 +69,7 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 		// one thing that must work on a machine with no runtime at all.
 		rt = runner.Runtime{Name: "docker", Path: "docker"}
 	default:
-		return New(st, runner.Unavailable(err)), nil
+		return New(st, runner.Unavailable(err), serviceOpts...), nil
 	}
-	return New(st, runner.NewOCI(rt, runnerOpts...)), nil
+	return New(st, runner.NewOCI(rt, runnerOpts...), serviceOpts...), nil
 }

@@ -1,24 +1,35 @@
 package proxy
 
 // New returns the starting policy for a preset.
-func New(preset Preset) Policy {
-	switch preset {
-	case PresetBalanced:
-		return Policy{Preset: PresetBalanced, Rules: allowAll(balanced)}
-	case PresetOpen:
-		return Policy{Preset: PresetOpen}
-	default:
-		return Policy{Preset: preset}
+//
+// A preset's own allowances are not copied into Rules. They stay behind the
+// preset, so Rules holds only what a person added — which is what makes
+// switching preset mean something. Materialised, a switch would carry the old
+// preset's whole list forward and change nothing at all.
+func New(preset Preset) Policy { return Policy{Preset: preset} }
+
+// Allows reports whether a preset permits a target on its own, and which of its
+// entries said so.
+func (p Preset) Allows(t Target) (pattern string, ok bool) {
+	if p != PresetBalanced {
+		// open is handled as a default rather than a list, and locked-down
+		// allows nothing until told to.
+		return "", false
 	}
+	for _, entry := range balanced {
+		if Matches(entry, t) {
+			return entry, true
+		}
+	}
+	return "", false
 }
 
-// allowAll turns a list of patterns into allow rules.
-func allowAll(patterns []string) []Rule {
-	rules := make([]Rule, 0, len(patterns))
-	for _, p := range patterns {
-		rules = append(rules, Rule{Pattern: p, Allow: true})
+// Allowances lists what a preset permits on its own, for display.
+func (p Preset) Allowances() []string {
+	if p != PresetBalanced {
+		return nil
 	}
-	return rules
+	return balanced
 }
 
 // balanced is what the balanced preset allows: the places an agent has to

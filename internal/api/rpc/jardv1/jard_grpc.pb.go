@@ -19,15 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Sandboxes_Create_FullMethodName  = "/jard.v1.Sandboxes/Create"
-	Sandboxes_List_FullMethodName    = "/jard.v1.Sandboxes/List"
-	Sandboxes_Inspect_FullMethodName = "/jard.v1.Sandboxes/Inspect"
-	Sandboxes_Start_FullMethodName   = "/jard.v1.Sandboxes/Start"
-	Sandboxes_Stop_FullMethodName    = "/jard.v1.Sandboxes/Stop"
-	Sandboxes_Remove_FullMethodName  = "/jard.v1.Sandboxes/Remove"
-	Sandboxes_Copy_FullMethodName    = "/jard.v1.Sandboxes/Copy"
-	Sandboxes_Stats_FullMethodName   = "/jard.v1.Sandboxes/Stats"
-	Sandboxes_Exec_FullMethodName    = "/jard.v1.Sandboxes/Exec"
+	Sandboxes_Create_FullMethodName      = "/jard.v1.Sandboxes/Create"
+	Sandboxes_List_FullMethodName        = "/jard.v1.Sandboxes/List"
+	Sandboxes_Inspect_FullMethodName     = "/jard.v1.Sandboxes/Inspect"
+	Sandboxes_Start_FullMethodName       = "/jard.v1.Sandboxes/Start"
+	Sandboxes_Stop_FullMethodName        = "/jard.v1.Sandboxes/Stop"
+	Sandboxes_Remove_FullMethodName      = "/jard.v1.Sandboxes/Remove"
+	Sandboxes_Copy_FullMethodName        = "/jard.v1.Sandboxes/Copy"
+	Sandboxes_Stats_FullMethodName       = "/jard.v1.Sandboxes/Stats"
+	Sandboxes_Exec_FullMethodName        = "/jard.v1.Sandboxes/Exec"
+	Sandboxes_GetPolicy_FullMethodName   = "/jard.v1.Sandboxes/GetPolicy"
+	Sandboxes_SetPolicy_FullMethodName   = "/jard.v1.Sandboxes/SetPolicy"
+	Sandboxes_Connections_FullMethodName = "/jard.v1.Sandboxes/Connections"
 )
 
 // SandboxesClient is the client API for Sandboxes service.
@@ -53,6 +56,12 @@ type SandboxesClient interface {
 	// client's first frame must be a Start; the daemon owns the session, which
 	// is what lets it hold a pty and what the SSH gateway will attach to.
 	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecClientFrame, ExecServerFrame], error)
+	GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error)
+	SetPolicy(ctx context.Context, in *SetPolicyRequest, opts ...grpc.CallOption) (*SetPolicyResponse, error)
+	// Connections returns what the proxy decided, newer than a sequence the
+	// caller already has. Polled rather than streamed: the dashboard re-reads on
+	// a tick anyway, and this costs the daemon no subscription per viewer.
+	Connections(ctx context.Context, in *ConnectionsRequest, opts ...grpc.CallOption) (*ConnectionsResponse, error)
 }
 
 type sandboxesClient struct {
@@ -165,6 +174,36 @@ func (c *sandboxesClient) Exec(ctx context.Context, opts ...grpc.CallOption) (gr
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Sandboxes_ExecClient = grpc.BidiStreamingClient[ExecClientFrame, ExecServerFrame]
 
+func (c *sandboxesClient) GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPolicyResponse)
+	err := c.cc.Invoke(ctx, Sandboxes_GetPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxesClient) SetPolicy(ctx context.Context, in *SetPolicyRequest, opts ...grpc.CallOption) (*SetPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetPolicyResponse)
+	err := c.cc.Invoke(ctx, Sandboxes_SetPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxesClient) Connections(ctx context.Context, in *ConnectionsRequest, opts ...grpc.CallOption) (*ConnectionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConnectionsResponse)
+	err := c.cc.Invoke(ctx, Sandboxes_Connections_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SandboxesServer is the server API for Sandboxes service.
 // All implementations must embed UnimplementedSandboxesServer
 // for forward compatibility.
@@ -188,6 +227,12 @@ type SandboxesServer interface {
 	// client's first frame must be a Start; the daemon owns the session, which
 	// is what lets it hold a pty and what the SSH gateway will attach to.
 	Exec(grpc.BidiStreamingServer[ExecClientFrame, ExecServerFrame]) error
+	GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error)
+	SetPolicy(context.Context, *SetPolicyRequest) (*SetPolicyResponse, error)
+	// Connections returns what the proxy decided, newer than a sequence the
+	// caller already has. Polled rather than streamed: the dashboard re-reads on
+	// a tick anyway, and this costs the daemon no subscription per viewer.
+	Connections(context.Context, *ConnectionsRequest) (*ConnectionsResponse, error)
 	mustEmbedUnimplementedSandboxesServer()
 }
 
@@ -224,6 +269,15 @@ func (UnimplementedSandboxesServer) Stats(*StatsRequest, grpc.ServerStreamingSer
 }
 func (UnimplementedSandboxesServer) Exec(grpc.BidiStreamingServer[ExecClientFrame, ExecServerFrame]) error {
 	return status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedSandboxesServer) GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPolicy not implemented")
+}
+func (UnimplementedSandboxesServer) SetPolicy(context.Context, *SetPolicyRequest) (*SetPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPolicy not implemented")
+}
+func (UnimplementedSandboxesServer) Connections(context.Context, *ConnectionsRequest) (*ConnectionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Connections not implemented")
 }
 func (UnimplementedSandboxesServer) mustEmbedUnimplementedSandboxesServer() {}
 func (UnimplementedSandboxesServer) testEmbeddedByValue()                   {}
@@ -390,6 +444,60 @@ func _Sandboxes_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Sandboxes_ExecServer = grpc.BidiStreamingServer[ExecClientFrame, ExecServerFrame]
 
+func _Sandboxes_GetPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxesServer).GetPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sandboxes_GetPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxesServer).GetPolicy(ctx, req.(*GetPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Sandboxes_SetPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxesServer).SetPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sandboxes_SetPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxesServer).SetPolicy(ctx, req.(*SetPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Sandboxes_Connections_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxesServer).Connections(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sandboxes_Connections_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxesServer).Connections(ctx, req.(*ConnectionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Sandboxes_ServiceDesc is the grpc.ServiceDesc for Sandboxes service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -424,6 +532,18 @@ var Sandboxes_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Copy",
 			Handler:    _Sandboxes_Copy_Handler,
+		},
+		{
+			MethodName: "GetPolicy",
+			Handler:    _Sandboxes_GetPolicy_Handler,
+		},
+		{
+			MethodName: "SetPolicy",
+			Handler:    _Sandboxes_SetPolicy_Handler,
+		},
+		{
+			MethodName: "Connections",
+			Handler:    _Sandboxes_Connections_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -22,6 +22,454 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Policy is the host's egress policy: a preset, plus the rules over it.
+type Policy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Preset        string                 `protobuf:"bytes,1,opt,name=preset,proto3" json:"preset,omitempty"`
+	Rules         []*Rule                `protobuf:"bytes,2,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Policy) Reset() {
+	*x = Policy{}
+	mi := &file_jard_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Policy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Policy) ProtoMessage() {}
+
+func (x *Policy) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Policy.ProtoReflect.Descriptor instead.
+func (*Policy) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Policy) GetPreset() string {
+	if x != nil {
+		return x.Preset
+	}
+	return ""
+}
+
+func (x *Policy) GetRules() []*Rule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+// Rule is one policy entry. Pattern is a host, optionally with a port, and may
+// lead with "*." to cover subdomains.
+type Rule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pattern       string                 `protobuf:"bytes,1,opt,name=pattern,proto3" json:"pattern,omitempty"`
+	Allow         bool                   `protobuf:"varint,2,opt,name=allow,proto3" json:"allow,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Rule) Reset() {
+	*x = Rule{}
+	mi := &file_jard_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Rule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Rule) ProtoMessage() {}
+
+func (x *Rule) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Rule.ProtoReflect.Descriptor instead.
+func (*Rule) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Rule) GetPattern() string {
+	if x != nil {
+		return x.Pattern
+	}
+	return ""
+}
+
+func (x *Rule) GetAllow() bool {
+	if x != nil {
+		return x.Allow
+	}
+	return false
+}
+
+// Decision is one thing the proxy let through or refused.
+type Decision struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Seq           uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
+	At            *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
+	Host          string                 `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`
+	Port          int32                  `protobuf:"varint,4,opt,name=port,proto3" json:"port,omitempty"`
+	Allowed       bool                   `protobuf:"varint,5,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	Reason        string                 `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
+	Sandbox       string                 `protobuf:"bytes,7,opt,name=sandbox,proto3" json:"sandbox,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Decision) Reset() {
+	*x = Decision{}
+	mi := &file_jard_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Decision) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Decision) ProtoMessage() {}
+
+func (x *Decision) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Decision.ProtoReflect.Descriptor instead.
+func (*Decision) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Decision) GetSeq() uint64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *Decision) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
+func (x *Decision) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *Decision) GetPort() int32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *Decision) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
+func (x *Decision) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *Decision) GetSandbox() string {
+	if x != nil {
+		return x.Sandbox
+	}
+	return ""
+}
+
+type GetPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPolicyRequest) Reset() {
+	*x = GetPolicyRequest{}
+	mi := &file_jard_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPolicyRequest) ProtoMessage() {}
+
+func (x *GetPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPolicyRequest.ProtoReflect.Descriptor instead.
+func (*GetPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{3}
+}
+
+type GetPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policy        *Policy                `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPolicyResponse) Reset() {
+	*x = GetPolicyResponse{}
+	mi := &file_jard_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPolicyResponse) ProtoMessage() {}
+
+func (x *GetPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPolicyResponse.ProtoReflect.Descriptor instead.
+func (*GetPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetPolicyResponse) GetPolicy() *Policy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+type SetPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policy        *Policy                `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPolicyRequest) Reset() {
+	*x = SetPolicyRequest{}
+	mi := &file_jard_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPolicyRequest) ProtoMessage() {}
+
+func (x *SetPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPolicyRequest.ProtoReflect.Descriptor instead.
+func (*SetPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SetPolicyRequest) GetPolicy() *Policy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+type SetPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPolicyResponse) Reset() {
+	*x = SetPolicyResponse{}
+	mi := &file_jard_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPolicyResponse) ProtoMessage() {}
+
+func (x *SetPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPolicyResponse.ProtoReflect.Descriptor instead.
+func (*SetPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{6}
+}
+
+type ConnectionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Since         uint64                 `protobuf:"varint,1,opt,name=since,proto3" json:"since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectionsRequest) Reset() {
+	*x = ConnectionsRequest{}
+	mi := &file_jard_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectionsRequest) ProtoMessage() {}
+
+func (x *ConnectionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectionsRequest.ProtoReflect.Descriptor instead.
+func (*ConnectionsRequest) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ConnectionsRequest) GetSince() uint64 {
+	if x != nil {
+		return x.Since
+	}
+	return 0
+}
+
+type ConnectionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Decisions     []*Decision            `protobuf:"bytes,1,rep,name=decisions,proto3" json:"decisions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectionsResponse) Reset() {
+	*x = ConnectionsResponse{}
+	mi := &file_jard_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectionsResponse) ProtoMessage() {}
+
+func (x *ConnectionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jard_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectionsResponse.ProtoReflect.Descriptor instead.
+func (*ConnectionsResponse) Descriptor() ([]byte, []int) {
+	return file_jard_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ConnectionsResponse) GetDecisions() []*Decision {
+	if x != nil {
+		return x.Decisions
+	}
+	return nil
+}
+
 // Spec is a sandbox's durable definition, fixed when it is created.
 type Spec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -39,7 +487,7 @@ type Spec struct {
 
 func (x *Spec) Reset() {
 	*x = Spec{}
-	mi := &file_jard_proto_msgTypes[0]
+	mi := &file_jard_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -51,7 +499,7 @@ func (x *Spec) String() string {
 func (*Spec) ProtoMessage() {}
 
 func (x *Spec) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[0]
+	mi := &file_jard_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -64,7 +512,7 @@ func (x *Spec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Spec.ProtoReflect.Descriptor instead.
 func (*Spec) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{0}
+	return file_jard_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Spec) GetName() string {
@@ -134,7 +582,7 @@ type Workspace struct {
 
 func (x *Workspace) Reset() {
 	*x = Workspace{}
-	mi := &file_jard_proto_msgTypes[1]
+	mi := &file_jard_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +594,7 @@ func (x *Workspace) String() string {
 func (*Workspace) ProtoMessage() {}
 
 func (x *Workspace) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[1]
+	mi := &file_jard_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +607,7 @@ func (x *Workspace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Workspace.ProtoReflect.Descriptor instead.
 func (*Workspace) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{1}
+	return file_jard_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Workspace) GetHost() string {
@@ -187,7 +635,7 @@ type Resources struct {
 
 func (x *Resources) Reset() {
 	*x = Resources{}
-	mi := &file_jard_proto_msgTypes[2]
+	mi := &file_jard_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -199,7 +647,7 @@ func (x *Resources) String() string {
 func (*Resources) ProtoMessage() {}
 
 func (x *Resources) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[2]
+	mi := &file_jard_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -212,7 +660,7 @@ func (x *Resources) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resources.ProtoReflect.Descriptor instead.
 func (*Resources) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{2}
+	return file_jard_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Resources) GetCpus() float64 {
@@ -241,7 +689,7 @@ type Port struct {
 
 func (x *Port) Reset() {
 	*x = Port{}
-	mi := &file_jard_proto_msgTypes[3]
+	mi := &file_jard_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -253,7 +701,7 @@ func (x *Port) String() string {
 func (*Port) ProtoMessage() {}
 
 func (x *Port) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[3]
+	mi := &file_jard_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -266,7 +714,7 @@ func (x *Port) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Port.ProtoReflect.Descriptor instead.
 func (*Port) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{3}
+	return file_jard_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Port) GetHost() int32 {
@@ -307,7 +755,7 @@ type State struct {
 
 func (x *State) Reset() {
 	*x = State{}
-	mi := &file_jard_proto_msgTypes[4]
+	mi := &file_jard_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -319,7 +767,7 @@ func (x *State) String() string {
 func (*State) ProtoMessage() {}
 
 func (x *State) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[4]
+	mi := &file_jard_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -332,7 +780,7 @@ func (x *State) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use State.ProtoReflect.Descriptor instead.
 func (*State) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{4}
+	return file_jard_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *State) GetStatus() string {
@@ -374,7 +822,7 @@ type Sandbox struct {
 
 func (x *Sandbox) Reset() {
 	*x = Sandbox{}
-	mi := &file_jard_proto_msgTypes[5]
+	mi := &file_jard_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -386,7 +834,7 @@ func (x *Sandbox) String() string {
 func (*Sandbox) ProtoMessage() {}
 
 func (x *Sandbox) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[5]
+	mi := &file_jard_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,7 +847,7 @@ func (x *Sandbox) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sandbox.ProtoReflect.Descriptor instead.
 func (*Sandbox) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{5}
+	return file_jard_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Sandbox) GetSpec() *Spec {
@@ -427,7 +875,7 @@ type Ref struct {
 
 func (x *Ref) Reset() {
 	*x = Ref{}
-	mi := &file_jard_proto_msgTypes[6]
+	mi := &file_jard_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -439,7 +887,7 @@ func (x *Ref) String() string {
 func (*Ref) ProtoMessage() {}
 
 func (x *Ref) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[6]
+	mi := &file_jard_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -452,7 +900,7 @@ func (x *Ref) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ref.ProtoReflect.Descriptor instead.
 func (*Ref) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{6}
+	return file_jard_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Ref) GetName() string {
@@ -480,7 +928,7 @@ type Path struct {
 
 func (x *Path) Reset() {
 	*x = Path{}
-	mi := &file_jard_proto_msgTypes[7]
+	mi := &file_jard_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -492,7 +940,7 @@ func (x *Path) String() string {
 func (*Path) ProtoMessage() {}
 
 func (x *Path) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[7]
+	mi := &file_jard_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -505,7 +953,7 @@ func (x *Path) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Path.ProtoReflect.Descriptor instead.
 func (*Path) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{7}
+	return file_jard_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Path) GetSandbox() string {
@@ -537,7 +985,7 @@ type ExecRequest struct {
 
 func (x *ExecRequest) Reset() {
 	*x = ExecRequest{}
-	mi := &file_jard_proto_msgTypes[8]
+	mi := &file_jard_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +997,7 @@ func (x *ExecRequest) String() string {
 func (*ExecRequest) ProtoMessage() {}
 
 func (x *ExecRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[8]
+	mi := &file_jard_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +1010,7 @@ func (x *ExecRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecRequest.ProtoReflect.Descriptor instead.
 func (*ExecRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{8}
+	return file_jard_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ExecRequest) GetCmd() []string {
@@ -619,7 +1067,7 @@ type Sample struct {
 
 func (x *Sample) Reset() {
 	*x = Sample{}
-	mi := &file_jard_proto_msgTypes[9]
+	mi := &file_jard_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -631,7 +1079,7 @@ func (x *Sample) String() string {
 func (*Sample) ProtoMessage() {}
 
 func (x *Sample) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[9]
+	mi := &file_jard_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -644,7 +1092,7 @@ func (x *Sample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sample.ProtoReflect.Descriptor instead.
 func (*Sample) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{9}
+	return file_jard_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Sample) GetCpuPercent() float64 {
@@ -679,7 +1127,7 @@ type Size struct {
 
 func (x *Size) Reset() {
 	*x = Size{}
-	mi := &file_jard_proto_msgTypes[10]
+	mi := &file_jard_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -691,7 +1139,7 @@ func (x *Size) String() string {
 func (*Size) ProtoMessage() {}
 
 func (x *Size) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[10]
+	mi := &file_jard_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -704,7 +1152,7 @@ func (x *Size) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Size.ProtoReflect.Descriptor instead.
 func (*Size) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{10}
+	return file_jard_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Size) GetRows() uint32 {
@@ -730,7 +1178,7 @@ type CreateRequest struct {
 
 func (x *CreateRequest) Reset() {
 	*x = CreateRequest{}
-	mi := &file_jard_proto_msgTypes[11]
+	mi := &file_jard_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +1190,7 @@ func (x *CreateRequest) String() string {
 func (*CreateRequest) ProtoMessage() {}
 
 func (x *CreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[11]
+	mi := &file_jard_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +1203,7 @@ func (x *CreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRequest.ProtoReflect.Descriptor instead.
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{11}
+	return file_jard_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateRequest) GetSpec() *Spec {
@@ -774,7 +1222,7 @@ type CreateResponse struct {
 
 func (x *CreateResponse) Reset() {
 	*x = CreateResponse{}
-	mi := &file_jard_proto_msgTypes[12]
+	mi := &file_jard_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +1234,7 @@ func (x *CreateResponse) String() string {
 func (*CreateResponse) ProtoMessage() {}
 
 func (x *CreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[12]
+	mi := &file_jard_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +1247,7 @@ func (x *CreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateResponse.ProtoReflect.Descriptor instead.
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{12}
+	return file_jard_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CreateResponse) GetSandbox() *Sandbox {
@@ -817,7 +1265,7 @@ type ListRequest struct {
 
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
-	mi := &file_jard_proto_msgTypes[13]
+	mi := &file_jard_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -829,7 +1277,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[13]
+	mi := &file_jard_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -842,7 +1290,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{13}
+	return file_jard_proto_rawDescGZIP(), []int{22}
 }
 
 type ListResponse struct {
@@ -854,7 +1302,7 @@ type ListResponse struct {
 
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
-	mi := &file_jard_proto_msgTypes[14]
+	mi := &file_jard_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +1314,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[14]
+	mi := &file_jard_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +1327,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{14}
+	return file_jard_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListResponse) GetSandboxes() []*Sandbox {
@@ -898,7 +1346,7 @@ type InspectRequest struct {
 
 func (x *InspectRequest) Reset() {
 	*x = InspectRequest{}
-	mi := &file_jard_proto_msgTypes[15]
+	mi := &file_jard_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +1358,7 @@ func (x *InspectRequest) String() string {
 func (*InspectRequest) ProtoMessage() {}
 
 func (x *InspectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[15]
+	mi := &file_jard_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +1371,7 @@ func (x *InspectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectRequest.ProtoReflect.Descriptor instead.
 func (*InspectRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{15}
+	return file_jard_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *InspectRequest) GetRef() *Ref {
@@ -942,7 +1390,7 @@ type InspectResponse struct {
 
 func (x *InspectResponse) Reset() {
 	*x = InspectResponse{}
-	mi := &file_jard_proto_msgTypes[16]
+	mi := &file_jard_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -954,7 +1402,7 @@ func (x *InspectResponse) String() string {
 func (*InspectResponse) ProtoMessage() {}
 
 func (x *InspectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[16]
+	mi := &file_jard_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1415,7 @@ func (x *InspectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectResponse.ProtoReflect.Descriptor instead.
 func (*InspectResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{16}
+	return file_jard_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *InspectResponse) GetSandbox() *Sandbox {
@@ -986,7 +1434,7 @@ type StartRequest struct {
 
 func (x *StartRequest) Reset() {
 	*x = StartRequest{}
-	mi := &file_jard_proto_msgTypes[17]
+	mi := &file_jard_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -998,7 +1446,7 @@ func (x *StartRequest) String() string {
 func (*StartRequest) ProtoMessage() {}
 
 func (x *StartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[17]
+	mi := &file_jard_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1011,7 +1459,7 @@ func (x *StartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartRequest.ProtoReflect.Descriptor instead.
 func (*StartRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{17}
+	return file_jard_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *StartRequest) GetRef() *Ref {
@@ -1029,7 +1477,7 @@ type StartResponse struct {
 
 func (x *StartResponse) Reset() {
 	*x = StartResponse{}
-	mi := &file_jard_proto_msgTypes[18]
+	mi := &file_jard_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1489,7 @@ func (x *StartResponse) String() string {
 func (*StartResponse) ProtoMessage() {}
 
 func (x *StartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[18]
+	mi := &file_jard_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1502,7 @@ func (x *StartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartResponse.ProtoReflect.Descriptor instead.
 func (*StartResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{18}
+	return file_jard_proto_rawDescGZIP(), []int{27}
 }
 
 type StopRequest struct {
@@ -1066,7 +1514,7 @@ type StopRequest struct {
 
 func (x *StopRequest) Reset() {
 	*x = StopRequest{}
-	mi := &file_jard_proto_msgTypes[19]
+	mi := &file_jard_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1078,7 +1526,7 @@ func (x *StopRequest) String() string {
 func (*StopRequest) ProtoMessage() {}
 
 func (x *StopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[19]
+	mi := &file_jard_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1091,7 +1539,7 @@ func (x *StopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRequest.ProtoReflect.Descriptor instead.
 func (*StopRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{19}
+	return file_jard_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StopRequest) GetRef() *Ref {
@@ -1109,7 +1557,7 @@ type StopResponse struct {
 
 func (x *StopResponse) Reset() {
 	*x = StopResponse{}
-	mi := &file_jard_proto_msgTypes[20]
+	mi := &file_jard_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1121,7 +1569,7 @@ func (x *StopResponse) String() string {
 func (*StopResponse) ProtoMessage() {}
 
 func (x *StopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[20]
+	mi := &file_jard_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1134,7 +1582,7 @@ func (x *StopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopResponse.ProtoReflect.Descriptor instead.
 func (*StopResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{20}
+	return file_jard_proto_rawDescGZIP(), []int{29}
 }
 
 type RemoveRequest struct {
@@ -1147,7 +1595,7 @@ type RemoveRequest struct {
 
 func (x *RemoveRequest) Reset() {
 	*x = RemoveRequest{}
-	mi := &file_jard_proto_msgTypes[21]
+	mi := &file_jard_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1159,7 +1607,7 @@ func (x *RemoveRequest) String() string {
 func (*RemoveRequest) ProtoMessage() {}
 
 func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[21]
+	mi := &file_jard_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1172,7 +1620,7 @@ func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRequest.ProtoReflect.Descriptor instead.
 func (*RemoveRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{21}
+	return file_jard_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *RemoveRequest) GetRef() *Ref {
@@ -1197,7 +1645,7 @@ type RemoveResponse struct {
 
 func (x *RemoveResponse) Reset() {
 	*x = RemoveResponse{}
-	mi := &file_jard_proto_msgTypes[22]
+	mi := &file_jard_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1209,7 +1657,7 @@ func (x *RemoveResponse) String() string {
 func (*RemoveResponse) ProtoMessage() {}
 
 func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[22]
+	mi := &file_jard_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1222,7 +1670,7 @@ func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveResponse.ProtoReflect.Descriptor instead.
 func (*RemoveResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{22}
+	return file_jard_proto_rawDescGZIP(), []int{31}
 }
 
 type CopyRequest struct {
@@ -1235,7 +1683,7 @@ type CopyRequest struct {
 
 func (x *CopyRequest) Reset() {
 	*x = CopyRequest{}
-	mi := &file_jard_proto_msgTypes[23]
+	mi := &file_jard_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1247,7 +1695,7 @@ func (x *CopyRequest) String() string {
 func (*CopyRequest) ProtoMessage() {}
 
 func (x *CopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[23]
+	mi := &file_jard_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1708,7 @@ func (x *CopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyRequest.ProtoReflect.Descriptor instead.
 func (*CopyRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{23}
+	return file_jard_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CopyRequest) GetSrc() *Path {
@@ -1285,7 +1733,7 @@ type CopyResponse struct {
 
 func (x *CopyResponse) Reset() {
 	*x = CopyResponse{}
-	mi := &file_jard_proto_msgTypes[24]
+	mi := &file_jard_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1297,7 +1745,7 @@ func (x *CopyResponse) String() string {
 func (*CopyResponse) ProtoMessage() {}
 
 func (x *CopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[24]
+	mi := &file_jard_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1310,7 +1758,7 @@ func (x *CopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyResponse.ProtoReflect.Descriptor instead.
 func (*CopyResponse) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{24}
+	return file_jard_proto_rawDescGZIP(), []int{33}
 }
 
 type StatsRequest struct {
@@ -1322,7 +1770,7 @@ type StatsRequest struct {
 
 func (x *StatsRequest) Reset() {
 	*x = StatsRequest{}
-	mi := &file_jard_proto_msgTypes[25]
+	mi := &file_jard_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1334,7 +1782,7 @@ func (x *StatsRequest) String() string {
 func (*StatsRequest) ProtoMessage() {}
 
 func (x *StatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[25]
+	mi := &file_jard_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1347,7 +1795,7 @@ func (x *StatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatsRequest.ProtoReflect.Descriptor instead.
 func (*StatsRequest) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{25}
+	return file_jard_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StatsRequest) GetRef() *Ref {
@@ -1369,7 +1817,7 @@ type ExecStart struct {
 
 func (x *ExecStart) Reset() {
 	*x = ExecStart{}
-	mi := &file_jard_proto_msgTypes[26]
+	mi := &file_jard_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1381,7 +1829,7 @@ func (x *ExecStart) String() string {
 func (*ExecStart) ProtoMessage() {}
 
 func (x *ExecStart) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[26]
+	mi := &file_jard_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1394,7 +1842,7 @@ func (x *ExecStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecStart.ProtoReflect.Descriptor instead.
 func (*ExecStart) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{26}
+	return file_jard_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ExecStart) GetRef() *Ref {
@@ -1428,7 +1876,7 @@ type ExecStdinClose struct {
 
 func (x *ExecStdinClose) Reset() {
 	*x = ExecStdinClose{}
-	mi := &file_jard_proto_msgTypes[27]
+	mi := &file_jard_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1440,7 +1888,7 @@ func (x *ExecStdinClose) String() string {
 func (*ExecStdinClose) ProtoMessage() {}
 
 func (x *ExecStdinClose) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[27]
+	mi := &file_jard_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1453,7 +1901,7 @@ func (x *ExecStdinClose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecStdinClose.ProtoReflect.Descriptor instead.
 func (*ExecStdinClose) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{27}
+	return file_jard_proto_rawDescGZIP(), []int{36}
 }
 
 // ExecClientFrame is anything the client sends during a session.
@@ -1472,7 +1920,7 @@ type ExecClientFrame struct {
 
 func (x *ExecClientFrame) Reset() {
 	*x = ExecClientFrame{}
-	mi := &file_jard_proto_msgTypes[28]
+	mi := &file_jard_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1484,7 +1932,7 @@ func (x *ExecClientFrame) String() string {
 func (*ExecClientFrame) ProtoMessage() {}
 
 func (x *ExecClientFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[28]
+	mi := &file_jard_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1497,7 +1945,7 @@ func (x *ExecClientFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecClientFrame.ProtoReflect.Descriptor instead.
 func (*ExecClientFrame) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{28}
+	return file_jard_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ExecClientFrame) GetFrame() isExecClientFrame_Frame {
@@ -1587,7 +2035,7 @@ type ExecServerFrame struct {
 
 func (x *ExecServerFrame) Reset() {
 	*x = ExecServerFrame{}
-	mi := &file_jard_proto_msgTypes[29]
+	mi := &file_jard_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1599,7 +2047,7 @@ func (x *ExecServerFrame) String() string {
 func (*ExecServerFrame) ProtoMessage() {}
 
 func (x *ExecServerFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_jard_proto_msgTypes[29]
+	mi := &file_jard_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1612,7 +2060,7 @@ func (x *ExecServerFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecServerFrame.ProtoReflect.Descriptor instead.
 func (*ExecServerFrame) Descriptor() ([]byte, []int) {
-	return file_jard_proto_rawDescGZIP(), []int{29}
+	return file_jard_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ExecServerFrame) GetFrame() isExecServerFrame_Frame {
@@ -1676,7 +2124,31 @@ var File_jard_proto protoreflect.FileDescriptor
 const file_jard_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"jard.proto\x12\ajard.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n" +
+	"jard.proto\x12\ajard.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"E\n" +
+	"\x06Policy\x12\x16\n" +
+	"\x06preset\x18\x01 \x01(\tR\x06preset\x12#\n" +
+	"\x05rules\x18\x02 \x03(\v2\r.jard.v1.RuleR\x05rules\"6\n" +
+	"\x04Rule\x12\x18\n" +
+	"\apattern\x18\x01 \x01(\tR\apattern\x12\x14\n" +
+	"\x05allow\x18\x02 \x01(\bR\x05allow\"\xbc\x01\n" +
+	"\bDecision\x12\x10\n" +
+	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12*\n" +
+	"\x02at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x12\n" +
+	"\x04host\x18\x03 \x01(\tR\x04host\x12\x12\n" +
+	"\x04port\x18\x04 \x01(\x05R\x04port\x12\x18\n" +
+	"\aallowed\x18\x05 \x01(\bR\aallowed\x12\x16\n" +
+	"\x06reason\x18\x06 \x01(\tR\x06reason\x12\x18\n" +
+	"\asandbox\x18\a \x01(\tR\asandbox\"\x12\n" +
+	"\x10GetPolicyRequest\"<\n" +
+	"\x11GetPolicyResponse\x12'\n" +
+	"\x06policy\x18\x01 \x01(\v2\x0f.jard.v1.PolicyR\x06policy\";\n" +
+	"\x10SetPolicyRequest\x12'\n" +
+	"\x06policy\x18\x01 \x01(\v2\x0f.jard.v1.PolicyR\x06policy\"\x13\n" +
+	"\x11SetPolicyResponse\"*\n" +
+	"\x12ConnectionsRequest\x12\x14\n" +
+	"\x05since\x18\x01 \x01(\x04R\x05since\"F\n" +
+	"\x13ConnectionsResponse\x12/\n" +
+	"\tdecisions\x18\x01 \x03(\v2\x11.jard.v1.DecisionR\tdecisions\"\xee\x02\n" +
 	"\x04Spec\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05agent\x18\x02 \x01(\tR\x05agent\x12\x14\n" +
@@ -1778,7 +2250,7 @@ const file_jard_proto_rawDesc = "" +
 	"\x06stdout\x18\x01 \x01(\fH\x00R\x06stdout\x12\x18\n" +
 	"\x06stderr\x18\x02 \x01(\fH\x00R\x06stderr\x12\x1d\n" +
 	"\texit_code\x18\x03 \x01(\x05H\x00R\bexitCodeB\a\n" +
-	"\x05frame2\x89\x04\n" +
+	"\x05frame2\xdb\x05\n" +
 	"\tSandboxes\x129\n" +
 	"\x06Create\x12\x16.jard.v1.CreateRequest\x1a\x17.jard.v1.CreateResponse\x123\n" +
 	"\x04List\x12\x14.jard.v1.ListRequest\x1a\x15.jard.v1.ListResponse\x12<\n" +
@@ -1788,7 +2260,10 @@ const file_jard_proto_rawDesc = "" +
 	"\x06Remove\x12\x16.jard.v1.RemoveRequest\x1a\x17.jard.v1.RemoveResponse\x123\n" +
 	"\x04Copy\x12\x14.jard.v1.CopyRequest\x1a\x15.jard.v1.CopyResponse\x121\n" +
 	"\x05Stats\x12\x15.jard.v1.StatsRequest\x1a\x0f.jard.v1.Sample0\x01\x12>\n" +
-	"\x04Exec\x12\x18.jard.v1.ExecClientFrame\x1a\x18.jard.v1.ExecServerFrame(\x010\x01B;Z9github.com/rhizomatous/jardiniere/internal/api/rpc/jardv1b\x06proto3"
+	"\x04Exec\x12\x18.jard.v1.ExecClientFrame\x1a\x18.jard.v1.ExecServerFrame(\x010\x01\x12B\n" +
+	"\tGetPolicy\x12\x19.jard.v1.GetPolicyRequest\x1a\x1a.jard.v1.GetPolicyResponse\x12B\n" +
+	"\tSetPolicy\x12\x19.jard.v1.SetPolicyRequest\x1a\x1a.jard.v1.SetPolicyResponse\x12H\n" +
+	"\vConnections\x12\x1b.jard.v1.ConnectionsRequest\x1a\x1c.jard.v1.ConnectionsResponseB;Z9github.com/rhizomatous/jardiniere/internal/api/rpc/jardv1b\x06proto3"
 
 var (
 	file_jard_proto_rawDescOnce sync.Once
@@ -1802,92 +2277,112 @@ func file_jard_proto_rawDescGZIP() []byte {
 	return file_jard_proto_rawDescData
 }
 
-var file_jard_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_jard_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_jard_proto_goTypes = []any{
-	(*Spec)(nil),                  // 0: jard.v1.Spec
-	(*Workspace)(nil),             // 1: jard.v1.Workspace
-	(*Resources)(nil),             // 2: jard.v1.Resources
-	(*Port)(nil),                  // 3: jard.v1.Port
-	(*State)(nil),                 // 4: jard.v1.State
-	(*Sandbox)(nil),               // 5: jard.v1.Sandbox
-	(*Ref)(nil),                   // 6: jard.v1.Ref
-	(*Path)(nil),                  // 7: jard.v1.Path
-	(*ExecRequest)(nil),           // 8: jard.v1.ExecRequest
-	(*Sample)(nil),                // 9: jard.v1.Sample
-	(*Size)(nil),                  // 10: jard.v1.Size
-	(*CreateRequest)(nil),         // 11: jard.v1.CreateRequest
-	(*CreateResponse)(nil),        // 12: jard.v1.CreateResponse
-	(*ListRequest)(nil),           // 13: jard.v1.ListRequest
-	(*ListResponse)(nil),          // 14: jard.v1.ListResponse
-	(*InspectRequest)(nil),        // 15: jard.v1.InspectRequest
-	(*InspectResponse)(nil),       // 16: jard.v1.InspectResponse
-	(*StartRequest)(nil),          // 17: jard.v1.StartRequest
-	(*StartResponse)(nil),         // 18: jard.v1.StartResponse
-	(*StopRequest)(nil),           // 19: jard.v1.StopRequest
-	(*StopResponse)(nil),          // 20: jard.v1.StopResponse
-	(*RemoveRequest)(nil),         // 21: jard.v1.RemoveRequest
-	(*RemoveResponse)(nil),        // 22: jard.v1.RemoveResponse
-	(*CopyRequest)(nil),           // 23: jard.v1.CopyRequest
-	(*CopyResponse)(nil),          // 24: jard.v1.CopyResponse
-	(*StatsRequest)(nil),          // 25: jard.v1.StatsRequest
-	(*ExecStart)(nil),             // 26: jard.v1.ExecStart
-	(*ExecStdinClose)(nil),        // 27: jard.v1.ExecStdinClose
-	(*ExecClientFrame)(nil),       // 28: jard.v1.ExecClientFrame
-	(*ExecServerFrame)(nil),       // 29: jard.v1.ExecServerFrame
-	nil,                           // 30: jard.v1.Spec.EnvEntry
-	nil,                           // 31: jard.v1.ExecRequest.EnvEntry
-	(*timestamppb.Timestamp)(nil), // 32: google.protobuf.Timestamp
+	(*Policy)(nil),                // 0: jard.v1.Policy
+	(*Rule)(nil),                  // 1: jard.v1.Rule
+	(*Decision)(nil),              // 2: jard.v1.Decision
+	(*GetPolicyRequest)(nil),      // 3: jard.v1.GetPolicyRequest
+	(*GetPolicyResponse)(nil),     // 4: jard.v1.GetPolicyResponse
+	(*SetPolicyRequest)(nil),      // 5: jard.v1.SetPolicyRequest
+	(*SetPolicyResponse)(nil),     // 6: jard.v1.SetPolicyResponse
+	(*ConnectionsRequest)(nil),    // 7: jard.v1.ConnectionsRequest
+	(*ConnectionsResponse)(nil),   // 8: jard.v1.ConnectionsResponse
+	(*Spec)(nil),                  // 9: jard.v1.Spec
+	(*Workspace)(nil),             // 10: jard.v1.Workspace
+	(*Resources)(nil),             // 11: jard.v1.Resources
+	(*Port)(nil),                  // 12: jard.v1.Port
+	(*State)(nil),                 // 13: jard.v1.State
+	(*Sandbox)(nil),               // 14: jard.v1.Sandbox
+	(*Ref)(nil),                   // 15: jard.v1.Ref
+	(*Path)(nil),                  // 16: jard.v1.Path
+	(*ExecRequest)(nil),           // 17: jard.v1.ExecRequest
+	(*Sample)(nil),                // 18: jard.v1.Sample
+	(*Size)(nil),                  // 19: jard.v1.Size
+	(*CreateRequest)(nil),         // 20: jard.v1.CreateRequest
+	(*CreateResponse)(nil),        // 21: jard.v1.CreateResponse
+	(*ListRequest)(nil),           // 22: jard.v1.ListRequest
+	(*ListResponse)(nil),          // 23: jard.v1.ListResponse
+	(*InspectRequest)(nil),        // 24: jard.v1.InspectRequest
+	(*InspectResponse)(nil),       // 25: jard.v1.InspectResponse
+	(*StartRequest)(nil),          // 26: jard.v1.StartRequest
+	(*StartResponse)(nil),         // 27: jard.v1.StartResponse
+	(*StopRequest)(nil),           // 28: jard.v1.StopRequest
+	(*StopResponse)(nil),          // 29: jard.v1.StopResponse
+	(*RemoveRequest)(nil),         // 30: jard.v1.RemoveRequest
+	(*RemoveResponse)(nil),        // 31: jard.v1.RemoveResponse
+	(*CopyRequest)(nil),           // 32: jard.v1.CopyRequest
+	(*CopyResponse)(nil),          // 33: jard.v1.CopyResponse
+	(*StatsRequest)(nil),          // 34: jard.v1.StatsRequest
+	(*ExecStart)(nil),             // 35: jard.v1.ExecStart
+	(*ExecStdinClose)(nil),        // 36: jard.v1.ExecStdinClose
+	(*ExecClientFrame)(nil),       // 37: jard.v1.ExecClientFrame
+	(*ExecServerFrame)(nil),       // 38: jard.v1.ExecServerFrame
+	nil,                           // 39: jard.v1.Spec.EnvEntry
+	nil,                           // 40: jard.v1.ExecRequest.EnvEntry
+	(*timestamppb.Timestamp)(nil), // 41: google.protobuf.Timestamp
 }
 var file_jard_proto_depIdxs = []int32{
-	1,  // 0: jard.v1.Spec.workspaces:type_name -> jard.v1.Workspace
-	2,  // 1: jard.v1.Spec.resources:type_name -> jard.v1.Resources
-	30, // 2: jard.v1.Spec.env:type_name -> jard.v1.Spec.EnvEntry
-	3,  // 3: jard.v1.Spec.ports:type_name -> jard.v1.Port
-	32, // 4: jard.v1.Spec.created_at:type_name -> google.protobuf.Timestamp
-	32, // 5: jard.v1.State.started_at:type_name -> google.protobuf.Timestamp
-	0,  // 6: jard.v1.Sandbox.spec:type_name -> jard.v1.Spec
-	4,  // 7: jard.v1.Sandbox.state:type_name -> jard.v1.State
-	31, // 8: jard.v1.ExecRequest.env:type_name -> jard.v1.ExecRequest.EnvEntry
-	0,  // 9: jard.v1.CreateRequest.spec:type_name -> jard.v1.Spec
-	5,  // 10: jard.v1.CreateResponse.sandbox:type_name -> jard.v1.Sandbox
-	5,  // 11: jard.v1.ListResponse.sandboxes:type_name -> jard.v1.Sandbox
-	6,  // 12: jard.v1.InspectRequest.ref:type_name -> jard.v1.Ref
-	5,  // 13: jard.v1.InspectResponse.sandbox:type_name -> jard.v1.Sandbox
-	6,  // 14: jard.v1.StartRequest.ref:type_name -> jard.v1.Ref
-	6,  // 15: jard.v1.StopRequest.ref:type_name -> jard.v1.Ref
-	6,  // 16: jard.v1.RemoveRequest.ref:type_name -> jard.v1.Ref
-	7,  // 17: jard.v1.CopyRequest.src:type_name -> jard.v1.Path
-	7,  // 18: jard.v1.CopyRequest.dst:type_name -> jard.v1.Path
-	6,  // 19: jard.v1.StatsRequest.ref:type_name -> jard.v1.Ref
-	6,  // 20: jard.v1.ExecStart.ref:type_name -> jard.v1.Ref
-	8,  // 21: jard.v1.ExecStart.request:type_name -> jard.v1.ExecRequest
-	10, // 22: jard.v1.ExecStart.size:type_name -> jard.v1.Size
-	26, // 23: jard.v1.ExecClientFrame.start:type_name -> jard.v1.ExecStart
-	10, // 24: jard.v1.ExecClientFrame.resize:type_name -> jard.v1.Size
-	27, // 25: jard.v1.ExecClientFrame.stdin_close:type_name -> jard.v1.ExecStdinClose
-	11, // 26: jard.v1.Sandboxes.Create:input_type -> jard.v1.CreateRequest
-	13, // 27: jard.v1.Sandboxes.List:input_type -> jard.v1.ListRequest
-	15, // 28: jard.v1.Sandboxes.Inspect:input_type -> jard.v1.InspectRequest
-	17, // 29: jard.v1.Sandboxes.Start:input_type -> jard.v1.StartRequest
-	19, // 30: jard.v1.Sandboxes.Stop:input_type -> jard.v1.StopRequest
-	21, // 31: jard.v1.Sandboxes.Remove:input_type -> jard.v1.RemoveRequest
-	23, // 32: jard.v1.Sandboxes.Copy:input_type -> jard.v1.CopyRequest
-	25, // 33: jard.v1.Sandboxes.Stats:input_type -> jard.v1.StatsRequest
-	28, // 34: jard.v1.Sandboxes.Exec:input_type -> jard.v1.ExecClientFrame
-	12, // 35: jard.v1.Sandboxes.Create:output_type -> jard.v1.CreateResponse
-	14, // 36: jard.v1.Sandboxes.List:output_type -> jard.v1.ListResponse
-	16, // 37: jard.v1.Sandboxes.Inspect:output_type -> jard.v1.InspectResponse
-	18, // 38: jard.v1.Sandboxes.Start:output_type -> jard.v1.StartResponse
-	20, // 39: jard.v1.Sandboxes.Stop:output_type -> jard.v1.StopResponse
-	22, // 40: jard.v1.Sandboxes.Remove:output_type -> jard.v1.RemoveResponse
-	24, // 41: jard.v1.Sandboxes.Copy:output_type -> jard.v1.CopyResponse
-	9,  // 42: jard.v1.Sandboxes.Stats:output_type -> jard.v1.Sample
-	29, // 43: jard.v1.Sandboxes.Exec:output_type -> jard.v1.ExecServerFrame
-	35, // [35:44] is the sub-list for method output_type
-	26, // [26:35] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	1,  // 0: jard.v1.Policy.rules:type_name -> jard.v1.Rule
+	41, // 1: jard.v1.Decision.at:type_name -> google.protobuf.Timestamp
+	0,  // 2: jard.v1.GetPolicyResponse.policy:type_name -> jard.v1.Policy
+	0,  // 3: jard.v1.SetPolicyRequest.policy:type_name -> jard.v1.Policy
+	2,  // 4: jard.v1.ConnectionsResponse.decisions:type_name -> jard.v1.Decision
+	10, // 5: jard.v1.Spec.workspaces:type_name -> jard.v1.Workspace
+	11, // 6: jard.v1.Spec.resources:type_name -> jard.v1.Resources
+	39, // 7: jard.v1.Spec.env:type_name -> jard.v1.Spec.EnvEntry
+	12, // 8: jard.v1.Spec.ports:type_name -> jard.v1.Port
+	41, // 9: jard.v1.Spec.created_at:type_name -> google.protobuf.Timestamp
+	41, // 10: jard.v1.State.started_at:type_name -> google.protobuf.Timestamp
+	9,  // 11: jard.v1.Sandbox.spec:type_name -> jard.v1.Spec
+	13, // 12: jard.v1.Sandbox.state:type_name -> jard.v1.State
+	40, // 13: jard.v1.ExecRequest.env:type_name -> jard.v1.ExecRequest.EnvEntry
+	9,  // 14: jard.v1.CreateRequest.spec:type_name -> jard.v1.Spec
+	14, // 15: jard.v1.CreateResponse.sandbox:type_name -> jard.v1.Sandbox
+	14, // 16: jard.v1.ListResponse.sandboxes:type_name -> jard.v1.Sandbox
+	15, // 17: jard.v1.InspectRequest.ref:type_name -> jard.v1.Ref
+	14, // 18: jard.v1.InspectResponse.sandbox:type_name -> jard.v1.Sandbox
+	15, // 19: jard.v1.StartRequest.ref:type_name -> jard.v1.Ref
+	15, // 20: jard.v1.StopRequest.ref:type_name -> jard.v1.Ref
+	15, // 21: jard.v1.RemoveRequest.ref:type_name -> jard.v1.Ref
+	16, // 22: jard.v1.CopyRequest.src:type_name -> jard.v1.Path
+	16, // 23: jard.v1.CopyRequest.dst:type_name -> jard.v1.Path
+	15, // 24: jard.v1.StatsRequest.ref:type_name -> jard.v1.Ref
+	15, // 25: jard.v1.ExecStart.ref:type_name -> jard.v1.Ref
+	17, // 26: jard.v1.ExecStart.request:type_name -> jard.v1.ExecRequest
+	19, // 27: jard.v1.ExecStart.size:type_name -> jard.v1.Size
+	35, // 28: jard.v1.ExecClientFrame.start:type_name -> jard.v1.ExecStart
+	19, // 29: jard.v1.ExecClientFrame.resize:type_name -> jard.v1.Size
+	36, // 30: jard.v1.ExecClientFrame.stdin_close:type_name -> jard.v1.ExecStdinClose
+	20, // 31: jard.v1.Sandboxes.Create:input_type -> jard.v1.CreateRequest
+	22, // 32: jard.v1.Sandboxes.List:input_type -> jard.v1.ListRequest
+	24, // 33: jard.v1.Sandboxes.Inspect:input_type -> jard.v1.InspectRequest
+	26, // 34: jard.v1.Sandboxes.Start:input_type -> jard.v1.StartRequest
+	28, // 35: jard.v1.Sandboxes.Stop:input_type -> jard.v1.StopRequest
+	30, // 36: jard.v1.Sandboxes.Remove:input_type -> jard.v1.RemoveRequest
+	32, // 37: jard.v1.Sandboxes.Copy:input_type -> jard.v1.CopyRequest
+	34, // 38: jard.v1.Sandboxes.Stats:input_type -> jard.v1.StatsRequest
+	37, // 39: jard.v1.Sandboxes.Exec:input_type -> jard.v1.ExecClientFrame
+	3,  // 40: jard.v1.Sandboxes.GetPolicy:input_type -> jard.v1.GetPolicyRequest
+	5,  // 41: jard.v1.Sandboxes.SetPolicy:input_type -> jard.v1.SetPolicyRequest
+	7,  // 42: jard.v1.Sandboxes.Connections:input_type -> jard.v1.ConnectionsRequest
+	21, // 43: jard.v1.Sandboxes.Create:output_type -> jard.v1.CreateResponse
+	23, // 44: jard.v1.Sandboxes.List:output_type -> jard.v1.ListResponse
+	25, // 45: jard.v1.Sandboxes.Inspect:output_type -> jard.v1.InspectResponse
+	27, // 46: jard.v1.Sandboxes.Start:output_type -> jard.v1.StartResponse
+	29, // 47: jard.v1.Sandboxes.Stop:output_type -> jard.v1.StopResponse
+	31, // 48: jard.v1.Sandboxes.Remove:output_type -> jard.v1.RemoveResponse
+	33, // 49: jard.v1.Sandboxes.Copy:output_type -> jard.v1.CopyResponse
+	18, // 50: jard.v1.Sandboxes.Stats:output_type -> jard.v1.Sample
+	38, // 51: jard.v1.Sandboxes.Exec:output_type -> jard.v1.ExecServerFrame
+	4,  // 52: jard.v1.Sandboxes.GetPolicy:output_type -> jard.v1.GetPolicyResponse
+	6,  // 53: jard.v1.Sandboxes.SetPolicy:output_type -> jard.v1.SetPolicyResponse
+	8,  // 54: jard.v1.Sandboxes.Connections:output_type -> jard.v1.ConnectionsResponse
+	43, // [43:55] is the sub-list for method output_type
+	31, // [31:43] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_jard_proto_init() }
@@ -1895,13 +2390,13 @@ func file_jard_proto_init() {
 	if File_jard_proto != nil {
 		return
 	}
-	file_jard_proto_msgTypes[28].OneofWrappers = []any{
+	file_jard_proto_msgTypes[37].OneofWrappers = []any{
 		(*ExecClientFrame_Start)(nil),
 		(*ExecClientFrame_Stdin)(nil),
 		(*ExecClientFrame_Resize)(nil),
 		(*ExecClientFrame_StdinClose)(nil),
 	}
-	file_jard_proto_msgTypes[29].OneofWrappers = []any{
+	file_jard_proto_msgTypes[38].OneofWrappers = []any{
 		(*ExecServerFrame_Stdout)(nil),
 		(*ExecServerFrame_Stderr)(nil),
 		(*ExecServerFrame_ExitCode)(nil),
@@ -1912,7 +2407,7 @@ func file_jard_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jard_proto_rawDesc), len(file_jard_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/rhizomatous/jardiniere/internal/api"
+	"github.com/rhizomatous/jardiniere/internal/proxy"
 )
 
 // dial stands a server up over an in-memory transport and returns a client
@@ -369,5 +371,85 @@ func TestExecReportsAMissingSandbox(t *testing.T) {
 		api.Streams{Stdin: strings.NewReader(""), Stdout: io.Discard, Stderr: io.Discard})
 	if !errors.Is(err, api.ErrNotFound) {
 		t.Errorf("err = %v, want it to match ErrNotFound", err)
+	}
+}
+
+func TestEverySentinelHasItsOwnCode(t *testing.T) {
+	// decoding takes the first entry whose code matches, so a duplicate would
+	// hand callers a different error than the daemon raised — and it would
+	// look right, because the message survives either way.
+	seen := map[codes.Code]error{}
+	for _, s := range sentinels {
+		if other, dup := seen[s.code]; dup {
+			t.Errorf("%v and %v share code %v", other, s.err, s.code)
+		}
+		seen[s.code] = s.err
+	}
+}
+
+func TestNoPolicyRoundTripsAsItself(t *testing.T) {
+	// the first-run wizard branches on this, and ErrNotFound would send it
+	// down the wrong path entirely.
+	client := dial(t, api.NewFake())
+
+	_, err := client.Policy(context.Background())
+	if !errors.Is(err, api.ErrNoPolicy) {
+		t.Errorf("err = %v, want it to match ErrNoPolicy", err)
+	}
+	if errors.Is(err, api.ErrNotFound) {
+		t.Error("ErrNoPolicy must not arrive as ErrNotFound")
+	}
+}
+
+func TestPolicySurvivesTheRoundTrip(t *testing.T) {
+	client := dial(t, api.NewFake())
+
+	want := proxy.Policy{Preset: proxy.PresetBalanced, Rules: []proxy.Rule{
+		{Pattern: "*.example.com", Allow: true},
+		{Pattern: "blocked.test:443"},
+	}}
+	if err := client.SetPolicy(context.Background(), want); err != nil {
+		t.Fatalf("SetPolicy: %v", err)
+	}
+	got, err := client.Policy(context.Background())
+	if err != nil {
+		t.Fatalf("Policy: %v", err)
+	}
+	if got.Preset != want.Preset || len(got.Rules) != 2 {
+		t.Fatalf("policy = %+v, want %+v", got, want)
+	}
+	if got.Rules[0] != want.Rules[0] || got.Rules[1] != want.Rules[1] {
+		t.Errorf("rules = %+v, want %+v", got.Rules, want.Rules)
+	}
+}
+
+func TestConnectionsCarryTheirDecisions(t *testing.T) {
+	fake := api.NewFake()
+	fake.Decisions = []proxy.Entry{
+		{Seq: 1, At: time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC), Target: proxy.Target{Host: "a.test", Port: 443}, Allowed: true, Reason: "allowed by rule a.test"},
+		{Seq: 2, Target: proxy.Target{Host: "b.test", Port: 80}, Reason: "denied by default", Sandbox: "web"},
+	}
+	client := dial(t, fake)
+
+	got, err := client.Connections(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("Connections: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d decisions, want 2", len(got))
+	}
+	if got[0].Target.Host != "a.test" || !got[0].Allowed || got[0].Reason == "" {
+		t.Errorf("first = %+v", got[0])
+	}
+	if got[1].Sandbox != "web" || got[1].Allowed {
+		t.Errorf("second = %+v", got[1])
+	}
+
+	since, err := client.Connections(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Connections(since): %v", err)
+	}
+	if len(since) != 1 || since[0].Seq != 2 {
+		t.Errorf("Connections(1) = %+v, want only the newer one", since)
 	}
 }

@@ -13,6 +13,11 @@ import (
 // sentinels pairs the errors callers match on with the gRPC codes that carry
 // them across the socket.
 //
+// Every code here is distinct, and has to stay that way: decoding takes the
+// first entry whose code matches, so two sentinels sharing one would silently
+// hand callers the wrong error. The codes are our own encoding rather than a
+// claim about gRPC semantics; nothing outside this package reads them.
+//
 // Without this, every error would arrive as an opaque string and the checks
 // that drive behaviour — the TUI's ErrRunning guard, create's ErrExists — would
 // silently stop matching.
@@ -24,6 +29,7 @@ var sentinels = []struct {
 	{api.ErrExists, codes.AlreadyExists},
 	{api.ErrRunning, codes.FailedPrecondition},
 	{api.ErrNotImplemented, codes.Unimplemented},
+	{api.ErrNoPolicy, codes.Unavailable},
 	{context.Canceled, codes.Canceled},
 	{context.DeadlineExceeded, codes.DeadlineExceeded},
 }

@@ -121,9 +121,10 @@ func serve(t *testing.T) string {
 
 	go func() {
 		done <- Serve(ctx, Options{
-			Socket:   socket,
-			StateDir: filepath.Join(dir, "state"),
-			Ready:    func() { close(ready) },
+			Socket:    socket,
+			StateDir:  filepath.Join(dir, "state"),
+			ProxyAddr: "127.0.0.1:0",
+			Ready:     func() { close(ready) },
 		})
 	}()
 
@@ -181,7 +182,7 @@ func TestServeWritesItsPidBeforeItAnswers(t *testing.T) {
 func TestServeRefusesASecondDaemon(t *testing.T) {
 	socket := serve(t)
 
-	err := Serve(context.Background(), Options{Socket: socket, StateDir: t.TempDir()})
+	err := Serve(context.Background(), Options{Socket: socket, StateDir: t.TempDir(), ProxyAddr: "127.0.0.1:0"})
 	if !errors.Is(err, ErrAlreadyRunning) {
 		t.Errorf("err = %v, want ErrAlreadyRunning", err)
 	}
@@ -206,9 +207,10 @@ func TestServeClearsASocketLeftBehindByADeadDaemon(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- Serve(ctx, Options{
-			Socket:   socket,
-			StateDir: filepath.Join(dir, "state"),
-			Ready:    func() { close(ready) },
+			Socket:    socket,
+			StateDir:  filepath.Join(dir, "state"),
+			ProxyAddr: "127.0.0.1:0",
+			Ready:     func() { close(ready) },
 		})
 	}()
 
@@ -236,9 +238,10 @@ func TestServeCleansUpAfterItself(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- Serve(ctx, Options{
-			Socket:   socket,
-			StateDir: filepath.Join(dir, "state"),
-			Ready:    func() { close(ready) },
+			Socket:    socket,
+			StateDir:  filepath.Join(dir, "state"),
+			ProxyAddr: "127.0.0.1:0",
+			Ready:     func() { close(ready) },
 		})
 	}()
 	<-ready

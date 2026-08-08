@@ -248,3 +248,58 @@ func TestTargetString(t *testing.T) {
 		t.Errorf("String() with no port = %q", got)
 	}
 }
+
+func TestSwitchingPresetActuallyChangesTheBaseline(t *testing.T) {
+	// the preset's own allowances must not be copied into Rules. Materialised,
+	// a switch would carry the old preset's whole list forward and the new
+	// preset would decide nothing.
+	p := New(PresetBalanced)
+	if len(p.Rules) != 0 {
+		t.Fatalf("a fresh policy has %d rules, want none of its own", len(p.Rules))
+	}
+	if v := p.Check(Target{Host: "api.anthropic.com", Port: 443}); !v.Allowed {
+		t.Fatalf("balanced should allow the model provider: %s", v.Reason)
+	}
+
+	p.Preset = PresetLockedDown
+	if v := p.Check(Target{Host: "api.anthropic.com", Port: 443}); v.Allowed {
+		t.Errorf("locked-down still allowed it: %s", v.Reason)
+	}
+}
+
+func TestRulesSurviveAPresetSwitch(t *testing.T) {
+	// a rule is what someone added by hand, so changing the baseline must not
+	// quietly discard it.
+	p := New(PresetBalanced)
+	p.Rules = append(p.Rules, Rule{Pattern: "mine.test", Allow: true})
+
+	p.Preset = PresetLockedDown
+	if v := p.Check(Target{Host: "mine.test", Port: 443}); !v.Allowed {
+		t.Errorf("a hand-added allow was lost switching preset: %s", v.Reason)
+	}
+}
+
+func TestARuleBeatsThePresetInBothDirections(t *testing.T) {
+	// denying something balanced allows has to work, and so does allowing
+	// something under locked-down.
+	balancedWithDeny := Policy{Preset: PresetBalanced, Rules: []Rule{{Pattern: "github.com"}}}
+	if v := balancedWithDeny.Check(Target{Host: "github.com", Port: 443}); v.Allowed {
+		t.Errorf("a deny should override the preset: %s", v.Reason)
+	}
+
+	lockedWithAllow := Policy{Preset: PresetLockedDown, Rules: []Rule{{Pattern: "github.com", Allow: true}}}
+	if v := lockedWithAllow.Check(Target{Host: "github.com", Port: 443}); !v.Allowed {
+		t.Errorf("an allow should override the preset: %s", v.Reason)
+	}
+}
+
+func TestPresetAllowancesAreOnlyBalanced(t *testing.T) {
+	if len(PresetBalanced.Allowances()) == 0 {
+		t.Error("balanced should list what it allows, for display")
+	}
+	for _, p := range []Preset{PresetOpen, PresetLockedDown} {
+		if len(p.Allowances()) != 0 {
+			t.Errorf("%s should carry no list of its own", p)
+		}
+	}
+}
